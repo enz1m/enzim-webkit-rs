@@ -153,7 +153,10 @@ def verify(directory, source_pin=None):
     # A build for a newer instruction set dies with SIGILL on an older CPU.
     options = manifest.get("build_options", {})
     flags = " ".join(options.get(key, "") for key in ("CMAKE_C_FLAGS", "CMAKE_CXX_FLAGS")).split()
-    for target in {flag.removeprefix("-march=") for flag in flags if flag.startswith("-march=")}:
+    targets = {flag.removeprefix("-march=") for flag in flags if flag.startswith("-march=")}
+    if options.get("ENABLE_X86_64_V3") == "ON":
+        targets.add("x86-64-v3")
+    for target in targets:
         if target not in CPU_LEVELS:
             raise ValueError(f"source runtime targets an unrecognized CPU: -march={target}")
         if not CPU_LEVELS[target] <= cpu_flags():
