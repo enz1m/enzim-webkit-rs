@@ -25,7 +25,7 @@ mod system_resolver;
 mod tunnels;
 mod upstream;
 use tunnels::{TunnelRelay, TunnelSender};
-pub use upstream::UpstreamProxy;
+pub use upstream::{ProxyKind, UpstreamProxy};
 
 /// How long the guard waits for a client's request head before giving up.
 const REQUEST_HEAD_TIMEOUT: Duration = Duration::from_secs(30);

@@ -98,7 +98,7 @@ impl WebProfile {
     /// The upstream proxy this profile's traffic uses, if any.
     #[must_use]
     pub fn upstream_proxy(&self) -> Option<crate::destination_guard::UpstreamProxy> {
-        self.upstream
+        self.upstream.clone()
     }
 
     /// This profile's kind.

@@ -1,4 +1,4 @@
-//! A profile's upstream HTTP CONNECT proxy carries only guard-approved,
+//! A profile's upstream proxy carries only guard-approved,
 //! pinned numeric destinations, and every proxy failure fails closed.
 
 use super::*;
@@ -65,8 +65,10 @@ fn serve(mut client: TcpStream, reply: &str, heads: &Mutex<Vec<String>>) {
     let mut upstream_reader = upstream;
     std::thread::spawn(move || {
         let _ = std::io::copy(&mut upstream_reader, &mut a);
+        let _ = a.shutdown(std::net::Shutdown::Write);
     });
     let _ = std::io::copy(&mut reader, &mut b);
+    let _ = b.shutdown(std::net::Shutdown::Write);
 }
 
 fn echo() -> SocketAddr {
@@ -131,22 +133,47 @@ fn a_tunnel_reaches_the_pinned_numeric_address_through_the_upstream_proxy() {
 }
 
 #[test]
-fn cleartext_http_is_tunneled_too() {
-    let upstream = Upstream::start("HTTP/1.1 200 Connection established\r\n\r\n");
-    let fixture = Fixture::start(OK_RESPONSE);
-    let guard =
-        DestinationGuard::start_routed(DestinationPolicy::trusted_local(), Some(upstream.proxy()))
-            .expect("guard starts");
-    let response = proxy(
-        &guard,
-        &format!(
-            "GET http://{addr}/hello HTTP/1.1\r\nHost: {addr}\r\n\r\n",
-            addr = fixture.addr
-        ),
-    );
-    assert!(response.contains("FIXTURE"), "{response}");
-    assert_eq!(fixture.accepted(), 1);
-    assert!(upstream.heads()[0].starts_with(&format!("CONNECT {} HTTP/1.1\r\n", fixture.addr)));
+fn cleartext_http_is_tunneled_with_optional_proxy_authentication() {
+    for credentials in [None, Some(("alice", "s3cret")), Some(("f", ""))] {
+        let upstream = Upstream::start("HTTP/1.1 200 Connection established\r\n\r\n");
+        let fixture = Fixture::start(OK_RESPONSE);
+        let mut route = upstream.proxy();
+        if let Some((user, pass)) = credentials {
+            route = route.with_credentials(user, pass).unwrap();
+        }
+        let guard = DestinationGuard::start_routed(DestinationPolicy::trusted_local(), Some(route))
+            .unwrap();
+        let response = proxy_request(&guard, &fixture);
+        assert!(response.contains("FIXTURE"), "{response}");
+        assert_eq!(fixture.accepted(), 1);
+        let heads = upstream.heads();
+        assert!(
+            !heads[0].contains(&authorization_value(&guard)),
+            "local guard capability leaked to upstream proxy"
+        );
+        assert!(
+            fixture
+                .heads()
+                .iter()
+                .all(|head| !head.to_ascii_lowercase().contains("proxy-authorization")),
+            "proxy credentials leaked to origin"
+        );
+        assert!(heads[0].starts_with(&format!("CONNECT {} HTTP/1.1\r\n", fixture.addr)));
+        let expected = match credentials {
+            None => None,
+            Some(("alice", _)) => Some("YWxpY2U6czNjcmV0"),
+            Some(_) => Some("Zjo="),
+        };
+        if let Some(encoded) = expected {
+            assert!(heads[0].contains(&format!("\r\nProxy-Authorization: Basic {encoded}\r\n")));
+        } else {
+            assert!(
+                !heads[0]
+                    .to_ascii_lowercase()
+                    .contains("proxy-authorization")
+            );
+        }
+    }
 }
 
 #[test]
@@ -213,4 +240,113 @@ fn a_silent_upstream_is_bounded_by_the_connect_deadline_and_udp_is_refused() {
             .kind(),
         std::io::ErrorKind::Unsupported
     );
+}
+
+fn proxy_request(guard: &DestinationGuard, fixture: &Fixture) -> String {
+    proxy(
+        guard,
+        &format!(
+            "GET http://{addr}/hello HTTP/1.1\r\nHost: {addr}\r\n\r\n",
+            addr = fixture.addr
+        ),
+    )
+}
+
+fn socks5(login: Option<(&'static str, &'static str)>) -> SocketAddr {
+    let listener = TcpListener::bind(("127.0.0.1", 0)).expect("socks binds");
+    let addr = listener.local_addr().expect("socks addr");
+    std::thread::spawn(move || {
+        let Ok((mut client, _)) = listener.accept() else {
+            return;
+        };
+        client
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        let mut head = [0u8; 2];
+        if client.read_exact(&mut head).is_err() {
+            return;
+        }
+        let mut methods = vec![0u8; usize::from(head[1])];
+        let _ = client.read_exact(&mut methods);
+        let wanted = if login.is_some() { 2 } else { 0 };
+        if !methods.contains(&wanted) {
+            let _ = client.write_all(&[5, 0xff]);
+            return;
+        }
+        let _ = client.write_all(&[5, wanted]);
+        if let Some((user, pass)) = login {
+            let field = |client: &mut TcpStream| {
+                let mut length = [0u8; 1];
+                client.read_exact(&mut length).ok()?;
+                let mut value = vec![0u8; usize::from(length[0])];
+                client.read_exact(&mut value).ok()?;
+                String::from_utf8(value).ok()
+            };
+            let mut version = [0u8; 1];
+            let _ = client.read_exact(&mut version);
+            let (u, p) = (field(&mut client), field(&mut client));
+            let ok = u.as_deref() == Some(user) && p.as_deref() == Some(pass);
+            let _ = client.write_all(&[1, u8::from(!ok)]);
+            if !ok {
+                return;
+            }
+        }
+        let mut request = [0u8; 4];
+        if client.read_exact(&mut request).is_err() || request[3] != 1 {
+            return;
+        }
+        let mut target = [0u8; 6];
+        let _ = client.read_exact(&mut target);
+        let target = SocketAddr::from((
+            [target[0], target[1], target[2], target[3]],
+            u16::from_be_bytes([target[4], target[5]]),
+        ));
+        let Ok(upstream) = TcpStream::connect(target) else {
+            let _ = client.write_all(&[5, 5, 0, 1, 0, 0, 0, 0, 0, 0]);
+            return;
+        };
+        let _ = client.write_all(&[5, 0, 0, 1, 127, 0, 0, 1, 0x1f, 0x90]);
+        let (mut a, mut b) = (client.try_clone().unwrap(), upstream.try_clone().unwrap());
+        let mut upstream_reader = upstream;
+        std::thread::spawn(move || {
+            let _ = std::io::copy(&mut upstream_reader, &mut a);
+            let _ = a.shutdown(std::net::Shutdown::Write);
+        });
+        let _ = std::io::copy(&mut client, &mut b);
+        let _ = b.shutdown(std::net::Shutdown::Write);
+    });
+    addr
+}
+
+#[test]
+fn socks5_authentication_routes_or_refuses_without_direct_fallback() {
+    for (login, credentials, success) in [
+        (None, None, true),
+        (Some(("bob", "hunter2")), Some(("bob", "hunter2")), true),
+        (Some(("bob", "hunter2")), None, false),
+        (Some(("bob", "hunter2")), Some(("bob", "wrong")), false),
+    ] {
+        let socks = socks5(login);
+        let fixture = Fixture::start(OK_RESPONSE);
+        let mut route = UpstreamProxy::socks5(socks);
+        if let Some((user, pass)) = credentials {
+            route = route.with_credentials(user, pass).unwrap();
+        }
+        let guard = DestinationGuard::start_routed(DestinationPolicy::trusted_local(), Some(route))
+            .unwrap();
+        let response = proxy_request(&guard, &fixture);
+        assert_eq!(
+            response.contains("FIXTURE"),
+            success,
+            "{credentials:?}: {response}"
+        );
+        assert_eq!(
+            fixture.accepted(),
+            usize::from(success),
+            "direct fallback after refused authentication"
+        );
+        if !success {
+            assert!(response.contains("<title>Connection unavailable</title>"));
+        }
+    }
 }

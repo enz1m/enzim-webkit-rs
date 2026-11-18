@@ -426,19 +426,26 @@ workers, extension messaging, storage and browser UI are not provided.
 
 ## Upstream proxy
 
-`WebProfile::with_upstream_proxy(UpstreamProxy::http_connect(addr))` routes a
-profile's traffic through an unauthenticated HTTP CONNECT proxy at a numeric
-address. The destination guard still screens, resolves and pins every
-destination; it then opens the stream by sending `CONNECT <pinned ip:port>`
-to the proxy, so the proxy performs no DNS and cannot choose another address.
-HTTP and HTTPS origins both use the tunnel. The guard's own
-`Proxy-Authorization` never leaves the process. A proxy refusal, a malformed
-reply or a silent proxy ends the request; there is no direct fallback, and
-UDP (HTTP/3) is refused. The proxy address is a configured hop and is not
-screened by the destination policy. A live profile is shared only by views
-that request the same routing; a different proxy on the same live profile
-returns `ProfileError::UpstreamProxyConflict`. Renderer recovery keeps the
-profile's routing. Proxy authentication and SOCKS are not supported.
+`WebProfile::with_upstream_proxy` accepts either
+`UpstreamProxy::http_connect(addr)` or `UpstreamProxy::socks5(addr)`, at a numeric
+proxy address. Both tunnel HTTP and HTTPS traffic to the destination guard's
+screened, resolved IP address; neither requests proxy-side DNS. The configured
+proxy is a trusted routing hop and is not screened as a page destination.
+
+Use `.with_credentials(username, password)?` for HTTP Basic or SOCKS5
+username/password authentication. Credentials are redacted in debug output and
+wiped when their final owner is dropped. Both authentication protocols send
+credentials without transport encryption, so use a trusted proxy connection.
+Configuring SOCKS5 credentials requires authentication; an anonymous downgrade
+is refused. The guard's own local authorization capability is never sent to the
+upstream proxy or origin.
+
+Proxy refusal, malformed replies and handshake timeout end the request without
+a direct fallback. UDP (HTTP/3) is refused. A live storage profile can only be
+shared by views requesting the same proxy protocol, address and credentials;
+conflicting routing returns `ProfileError::UpstreamProxyConflict`. Renderer
+recovery preserves the profile's routing. `UpstreamProxy` implements `Clone`
+rather than `Copy` because it owns credentials.
 
 ## Time-scoped cleanup
 

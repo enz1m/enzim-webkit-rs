@@ -451,8 +451,10 @@ impl NetworkSession {
         // the invariant that URL credentials are refused. Keep its network
         // session behind the guard so cleartext redirects are screened on the
         // wire, before WebKit canonicalises them.
-        let guard = match crate::destination_guard::DestinationGuard::start_routed(policy, upstream)
-        {
+        let guard = match crate::destination_guard::DestinationGuard::start_routed(
+            policy,
+            upstream.clone(),
+        ) {
             Ok(guard) => Some(guard),
             Err(error) => {
                 unsafe { wpe::g_object_unref(session.cast::<c_void>()) };
@@ -514,7 +516,7 @@ impl NetworkSession {
     /// The upstream proxy this session's guard tunnels through, if any.
     #[must_use]
     pub fn upstream_proxy(&self) -> Option<crate::destination_guard::UpstreamProxy> {
-        self.upstream
+        self.upstream.clone()
     }
 
     /// The immutable policy paired with this network session.
