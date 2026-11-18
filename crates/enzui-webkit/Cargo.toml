@@ -1,0 +1,140 @@
+[package]
+name = "enzui-webkit"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+description = "Typed WebView engine/runtime over WPE WebKit, with no UI toolkit: WPE sessions, generation-keyed views, default-deny policy, profile isolation, and explicit feature-off mode selection."
+
+[dependencies]
+# Share security and filesystem primitives without a toolkit dependency.
+enzui-security.workspace = true
+rustix = { version = "1.1", features = ["event", "net"] }
+memchr = "2.8"
+png = { version = "0.18.1", optional = true }
+serde_json = { version = "1", optional = true }
+
+[features]
+default = []
+# Native declarations use the SDK's C ABI and a small compiled platform shim.
+# No GTK, iced, or other toolkit dependency enters the engine.
+wpe = ["dep:pkg-config", "dep:png", "dep:serde_json"]
+
+# Diagnostic and negative renderer-isolation controls; never enable in a product build.
+sandbox-test-entrypoints = ["wpe"]
+
+[build-dependencies]
+pkg-config = { version = "0.3", optional = true }
+
+# The native build contract invokes the production build script in a child.
+[dev-dependencies]
+rustix = { version = "1.1", features = ["net"] }
+pkg-config = "0.3"
+
+# Native gates use libc for syscall controls and disposable-child cleanup.
+[target.'cfg(unix)'.dev-dependencies]
+libc = "0.2"
+
+# These targets have no feature-off contract test, so explicit requirements
+# prevent Cargo from compiling vacuous zero-test binaries.
+[[test]]
+name = "wpe_guard_installation"
+required-features = ["wpe"]
+
+[[test]]
+name = "wpe_policy"
+required-features = ["wpe"]
+
+[[test]]
+name = "wpe_tls_pretrust_host"
+required-features = ["wpe"]
+
+[[test]]
+name = "wpe_auth_input"
+required-features = ["wpe"]
+
+[[test]]
+name = "wpe_event_overflow"
+required-features = ["wpe"]
+
+[[test]]
+name = "wpe_thread_ownership"
+required-features = ["wpe"]
+
+# `sandbox-test-entrypoints` implies `wpe` and matches the file-level gate.
+[[test]]
+name = "wpe_sandbox"
+required-features = ["sandbox-test-entrypoints"]
+
+[[example]]
+name = "ime_report_probe"
+required-features = ["wpe"]
+
+[[example]]
+name = "readiness_probe"
+required-features = ["wpe"]
+
+[[example]]
+name = "profile_cache_probe"
+required-features = ["wpe"]
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "enzui-webkit-gpu-probe"
+path = "src/bin/gpu_probe.rs"
+required-features = ["wpe"]
+
+[[test]]
+name = "wpe_gpu_presentation"
+required-features = ["wpe"]
+
+[[example]]
+name = "dictionary_probe"
+required-features = ["wpe"]
+
+[[bin]]
+name = "enzui-webkit-browser-permissions-probe"
+path = "src/bin/browser_permissions_probe.rs"
+required-features = ["wpe"]
+
+[[test]]
+name = "wpe_browser_permissions"
+required-features = ["wpe"]
+
+[[bin]]
+name = "enzui-webkit-browser-site-data-probe"
+path = "src/bin/browser_site_data_probe.rs"
+required-features = ["wpe"]
+
+[[test]]
+name = "wpe_site_data"
+required-features = ["wpe"]
+
+[[bin]]
+name = "enzui-webkit-browser-clipboard-probe"
+path = "src/bin/browser_clipboard_probe.rs"
+required-features = ["wpe"]
+
+[[test]]
+name = "wpe_async_clipboard"
+required-features = ["wpe"]
+
+[[test]]
+name = "wpe_secret_scripts"
+required-features = ["wpe"]
+
+[[test]]
+name = "wpe_script_matching"
+required-features = ["wpe"]
+
+[[test]]
+name = "wpe_frame_secrets"
+required-features = ["wpe"]
+
+[[example]]
+name = "flatpak_probe"
+required-features = ["wpe"]

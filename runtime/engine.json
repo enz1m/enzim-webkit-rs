@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "abi": 1,
+  "version": "2.55.0",
+  "repository": "https://github.com/enz1m/enzim-webkit.git",
+  "branch": "enzim",
+  "source_commit": "5a0f9bee8a5e412e6befb6cac566382eb89652ed",
+  "compatible_build_commits": [
+    "ba6b169904a16f56396377c7d220b700cf56e712",
+    "eeb67180954759327784e33b61f2f2784c8cac64",
+    "16bea0efef664adfcd594f115da9cae274893a16"
+  ],
+  "upstream_commit": "b74592135f6378beaeec14c85c8fa2937a30473b",
+  "upstream_revision": "324516@main",
+  "gstreamer_playback": {
+    "version": "1.28.5",
+    "archive_url": "https://gstreamer.freedesktop.org/src/gst-plugins-base/gst-plugins-base-1.28.5.tar.xz",
+    "archive_sha256": "776f19228f91fd25bbf54d9850597e158507f594872a52b9b6814e2429b43eaa",
+    "patch_file": "patches/gstreamer-retained-request-pads.patch",
+    "patch_sha256": "b12bc47308a23589ea76930c28a73a4a1048f74eb1148bcfb589dc025c156f57"
+  },
+  "inspector_resources": true
+}

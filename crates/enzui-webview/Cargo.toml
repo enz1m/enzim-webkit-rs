@@ -1,0 +1,51 @@
+[package]
+name = "enzui-webview"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+description = "EnzWebView: shows an enzui-webkit page in an iced app and publishes its accessibility into enzUI semantics."
+
+[features]
+default = []
+# The real WPE backend, forwarded to the engine. The widget itself never
+# needs it; the integration gates under `tests/` that drive a real page do.
+wpe = ["enzui-webkit/wpe"]
+diagnostics = []
+
+[dependencies]
+enzui-webkit.workspace = true
+enzui-core.workspace = true
+enzui-theme.workspace = true
+enzui-widgets.workspace = true
+iced.workspace = true
+enzui-external-image.workspace = true
+
+[dev-dependencies]
+# `accesskit` lets the page-action tests and the native activation gate speak
+# the same `Action` the runtime resolves; `enzui-services/oauth` serves the page
+# conversation gate's redirect-capture check.
+enzui-core = { workspace = true, features = ["accesskit", "test-frame"] }
+enzui-services = { workspace = true, features = ["oauth"] }
+accesskit.workspace = true
+# The page conversation gate reads a captured redirect as a `SecretText`.
+enzui-security.workspace = true
+iced_test.workspace = true
+libc = "0.2"
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+enzui-core = { workspace = true, features = ["accesskit", "linux-native-backends-test"] }
+
+[[test]]
+name = "wpe_page"
+required-features = ["wpe"]
+
+[lints]
+workspace = true
+
+[[example]]
+name = "gpu_widget"
+path = "tests/support/gpu_widget.rs"
+required-features = ["wpe"]

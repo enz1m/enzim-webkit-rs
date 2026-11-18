@@ -1,0 +1,5 @@
+# Preserve upstream license bytes and unified diff context whitespace.
+native/patches/*COPYING -whitespace
+native/patches/*LICENSE* -whitespace
+native/patches/WebKit-NOTICES.txt -whitespace
+native/patches/*.patch -whitespace

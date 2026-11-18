@@ -1,0 +1,44 @@
+[package]
+name = "webview-probe"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+description = "Interactive check app for enzui-webkit and enzui-webview: every protocol hop on one clickable, testable route."
+
+[features]
+default = []
+x11 = ["iced/x11", "enzui-widgets/x11"]
+# Opt-in real WPE page. Off by default, so the route's native backend resolves
+# to `Err(NativeUnavailable)` and `NativePage::open` refuses with a typed error.
+wpe = ["enzui-webview/wpe"]
+diagnostics = ["wpe", "enzui-webview/diagnostics"]
+
+[dependencies]
+iced = { workspace = true, features = ["wayland", "wayland-dlopen", "wayland-decorations"] }
+iced_renderer.workspace = true
+enzui-core = { workspace = true, features = ["accesskit"] }
+enzui-theme.workspace = true
+enzui-widgets.workspace = true
+enzui-webview.workspace = true
+enzui-webkit.workspace = true
+
+[dev-dependencies]
+# The scratch-directory cleanup tests arm the shared fault injector.
+enzui-core = { workspace = true, features = ["security-fault-injection"] }
+iced_test.workspace = true
+accesskit.workspace = true
+
+[lints]
+workspace = true
+
+[[example]]
+name = "gpu_host"
+path = "../enzui-webview/tests/support/gpu_host.rs"
+required-features = ["wpe"]
+
+[[test]]
+name = "native_metadata"
+required-features = ["diagnostics"]

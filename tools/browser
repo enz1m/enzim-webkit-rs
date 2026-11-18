@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+"""Open the interactive WPE browser with a verified prebuilt engine."""
+import argparse
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("url", nargs="?", default="https://example.org/")
+    parser.add_argument("--runtime", type=Path, default=os.environ.get("ENZUI_WPE_RUNTIME"))
+    parser.add_argument("--binary", type=Path)
+    parser.add_argument("--engine-pin", "--source-pin", dest="engine_pin", type=Path,
+                        help="engine identity; defaults to runtime/engine.json")
+    args = parser.parse_args()
+    if args.binary is None:
+        try:
+            metadata = subprocess.run(
+                ["cargo", "metadata", "--offline", "--locked", "--no-deps", "--format-version=1"],
+                cwd=ROOT, check=True, capture_output=True, text=True,
+            )
+            args.binary = Path(json.loads(metadata.stdout)["target_directory"]) / "release/webview-probe"
+        except (OSError, subprocess.CalledProcessError, ValueError, KeyError) as error:
+            parser.error(f"cannot discover the Cargo target directory: {error}; pass --binary")
+    runtime = args.runtime or Path.home() / ".cache/enzui-webkit/source-runtime"
+    if not (runtime / "source-runtime.json").is_file():
+        parser.error("select a prepared engine with --runtime PATH or ENZUI_WPE_RUNTIME; see docs/native-runtime.md")
+    if not args.binary.is_file():
+        parser.error("build webview-probe with the wpe feature first; see README.md")
+    # Local fixture privileges must not carry into interactive browsing.
+    os.environ.pop("ENZUI_PROBE_TRUSTED_LOCAL", None)
+    os.environ.pop("ENZUI_PROBE_URL", None)
+    command = [sys.executable, str(ROOT / "tools/source_runtime.py"),
+               "--directory", str(runtime.resolve())]
+    if args.engine_pin is not None:
+        command.extend(["--engine-pin", str(args.engine_pin.resolve())])
+    command.extend(["run", "--", str(args.binary.resolve()), "--browser", args.url])
+    os.execvp(command[0], command)
+
+
+if __name__ == "__main__":
+    main()

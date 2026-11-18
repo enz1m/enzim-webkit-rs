@@ -1,0 +1,12 @@
+name: Rust integration checks
+on: [push, pull_request]
+jobs:
+  engine:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust tools
+        run: rustup show
+      - run: cargo fmt --all --check
+      - run: cargo clippy --locked -p enzui-webkit --all-targets --no-default-features -- -D warnings
+      - run: cargo test --locked -p enzui-webkit --lib --no-default-features
