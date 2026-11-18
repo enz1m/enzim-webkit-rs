@@ -72,10 +72,11 @@ bridge. The engine source lives in the separate `enzim-webkit` fork, on its
 repository, exact source commit, ABI and qualified compatible build identities.
 It contains no engine patches or Git bundles.
 
-Native builds, dependency patches and release packaging belong to the companion
-`enzim-webkit-flatpak` project. Application developers use its prebuilt Platform
-and matching development SDK, or a verified native runtime supplied by the
-publisher. No WebKit build or PGO training is required per application.
+Selected [engine releases](https://github.com/enz1m/enzim-webkit/releases) provide
+native runtime and matching development SDK archives, dependency sources and
+build inputs. Application developers compile Rust against the SDK and run with
+the matching runtime; Cargo does not rebuild WebKit or perform PGO training.
+Flatpak applications use the separately distributed Platform and SDK.
 
 For a prepared native runtime and a locally built probe:
 

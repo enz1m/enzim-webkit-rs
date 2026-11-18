@@ -4,8 +4,9 @@
   "version": "2.55.0",
   "repository": "https://github.com/enz1m/enzim-webkit.git",
   "branch": "enzim",
-  "source_commit": "5a0f9bee8a5e412e6befb6cac566382eb89652ed",
+  "source_commit": "705558154356356b2b130b18ed1c6495f3ea3cae",
   "compatible_build_commits": [
+    "5a0f9bee8a5e412e6befb6cac566382eb89652ed",
     "ba6b169904a16f56396377c7d220b700cf56e712",
     "eeb67180954759327784e33b61f2f2784c8cac64",
     "16bea0efef664adfcd594f115da9cae274893a16"

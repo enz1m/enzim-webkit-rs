@@ -7,21 +7,38 @@ FFI/credential-guard bridge. It does not contain or build the WebKit engine.
 |---|---|
 | WebKit engine and downstream changes | `enzim-webkit`, branch `enzim` |
 | Rust API and enzUI adapter | `enzim-webkit-rs` (`enzui-webkit` and `enzui-webview` crates) |
-| Native dependency recipes, runtime production and Flatpak packages | `enzim-webkit-flatpak` |
+| Native runtime, SDK and build inputs | [Engine releases](https://github.com/enz1m/enzim-webkit/releases) |
+| Flatpak runtime packaging | `enzim-webkit-flatpak` |
 
-[`runtime/engine.json`](../runtime/engine.json) selects one engine by immutable
-fork commit and ABI. Its compatible-build list identifies the already qualified
-optimized build of the same engine sources. The fork's documentation commits
-have different IDs from that original build; all other source-tree entries were
-verified identical. This compatibility list does not admit older engine variants.
+[`runtime/engine.json`](../runtime/engine.json) selects an engine by immutable
+fork commit and ABI. The maintained selection is the baseline x86-64 PGO build.
+Its compatible-build list retains previously qualified builds of the same engine
+implementation; the newer source selection adds an optional CPU target and build
+documentation. This list does not admit older engine variants with different
+runtime behavior.
 
 ## Application builds
 
-Install matching WebKit development headers and libraries, or use the matching
-Flatpak development SDK. Build with the `wpe` feature. Cargo compiles the Rust
-code and app-local guard; it does not download or compile WebKit. Native frame,
-profile and embedding APIs check runtime support and return explicit errors
-when the installed engine lacks a required capability.
+Download the matching native runtime and development SDK from the
+[engine releases](https://github.com/enz1m/enzim-webkit/releases). The SDK includes
+headers, relocatable pkg-config metadata and the matching libraries. Its
+`enzim-webkit-env` wrapper supplies build paths without installing system files:
+
+```sh
+/path/to/sdk/bin/enzim-webkit-env cargo build --release --locked \
+  --bin webview-probe --features webview-probe/wpe
+/path/to/runtime/bin/enzim-webkit-run ./target/release/webview-probe
+```
+
+These commands build the example from this workspace. Applications use their own
+Cargo targets and feature selection. Cargo compiles Rust and the app-local guard;
+it does not download or compile WebKit. Keep the runtime and SDK versions matched
+and check the native release's qualified system-library requirements. The first
+native archives are qualified on Arch Linux, with baseline x86-64 CPU targeting.
+Flatpak applications use the matching Flatpak development SDK instead.
+
+Native frame, profile and embedding APIs check runtime support and return
+explicit errors when the installed engine lacks a required capability.
 
 The guard must be installed in a trusted app directory. Select it with
 `set_credential_guard_directory` before native initialization. Flatpak applications
@@ -49,10 +66,10 @@ publisher. The Flatpak path uses signed runtime delivery.
 ## Engine maintainers
 
 Clone the WebKit fork at the exact pinned commit and build it with the release
-configuration in the native packaging project. That project owns libsoup and
-GStreamer patches, dependency source pins, upstream license notices and native
-build fixtures. WebKit changes are committed directly in its fork; no WebKit
-patch application or incremental Git bundle import is needed.
+configuration and build inputs accompanying its native release. Those inputs
+include libsoup and GStreamer source pins, patches and upstream license notices.
+WebKit changes are committed directly in its fork; no WebKit patch application or
+incremental Git bundle import is needed.
 
 The browser runtime is configured with `-DENABLE_WEB_RTC=ON`, which on WPE
 builds WebKit's bundled LibWebRTC. Its libvpx and libaom assembly needs nasm;
