@@ -49,12 +49,12 @@ interactive launch helpers impose no machine-specific memory or disk reserve.
 ## Use in an application
 
 Select the engine alone for a host-owned integration, or the enzUI widget for
-an iced application. Use the initial source release in your Cargo manifest:
+an iced application. Use the current prerelease in your Cargo manifest:
 
 ```toml
 [dependencies]
-enzui-webkit = { git = "https://github.com/enz1m/enzim-webkit-rs.git", tag = "v0.1.0", features = ["wpe"] }
-enzui-webview = { git = "https://github.com/enz1m/enzim-webkit-rs.git", tag = "v0.1.0", features = ["wpe"] }
+enzui-webkit = { git = "https://github.com/enz1m/enzim-webkit-rs.git", tag = "v0.2.0", features = ["wpe"] }
+enzui-webview = { git = "https://github.com/enz1m/enzim-webkit-rs.git", tag = "v0.2.0", features = ["wpe"] }
 ```
 
 Use the matching enzUI and iced sources, including the root Cargo patch table
