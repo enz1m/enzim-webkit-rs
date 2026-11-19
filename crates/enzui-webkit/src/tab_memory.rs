@@ -286,6 +286,11 @@ pub struct TabMemoryPolicy<K> {
     /// Discard tabs hidden this long even without pressure, as Chromium's
     /// Memory Saver does; `None` keeps them.
     pub discard_after: Option<Duration>,
+    /// Number of recently viewed hidden tabs eligible for a longer first
+    /// release delay. Set to zero to use the ordinary schedule for all tabs.
+    pub recent: usize,
+    /// Minimum first release delay for the recently viewed hidden tabs.
+    pub recent_release_after: Duration,
     releases: HashMap<K, Releases>,
 }
 
@@ -303,6 +308,8 @@ impl<K> Default for TabMemoryPolicy<K> {
             release_every: Duration::from_secs(30 * 60),
             moderate_discard_after: Duration::from_secs(10 * 60),
             discard_after: None,
+            recent: 0,
+            recent_release_after: Duration::from_secs(60),
             releases: HashMap::new(),
         }
     }
@@ -351,6 +358,15 @@ impl<K: Clone + Eq + Hash> TabMemoryPolicy<K> {
             tabs.iter()
                 .any(|tab| &tab.key == key && !tab.visible && !tab.discarded)
         });
+        let mut recent: Vec<_> = if self.recent == 0 {
+            Vec::new()
+        } else {
+            tabs.iter()
+                .filter(|tab| !tab.visible && !tab.discarded)
+                .collect()
+        };
+        recent.sort_by_key(|tab| std::cmp::Reverse(tab.last_visible));
+        recent.truncate(self.recent);
         for tab in tabs {
             if tab.visible
                 || tab.discarded
@@ -363,7 +379,11 @@ impl<K: Clone + Eq + Hash> TabMemoryPolicy<K> {
                 count: 0,
                 last: None,
             });
+            let first = releases.count == 0;
             let due = match self.release_after.get(releases.count) {
+                Some(after) if first && recent.iter().any(|candidate| candidate.key == tab.key) => {
+                    releases.hidden_since + (*after).max(self.recent_release_after)
+                }
                 Some(after) => releases.hidden_since + *after,
                 None => releases.last.unwrap_or(releases.hidden_since) + self.release_every,
             };
@@ -374,5 +394,64 @@ impl<K: Clone + Eq + Hash> TabMemoryPolicy<K> {
             }
         }
         actions
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tab(key: u32, age: Duration, now: Instant) -> TabState<u32> {
+        TabState {
+            key,
+            visible: false,
+            last_visible: now - age,
+            playing_audio: false,
+            protected: false,
+            discarded: false,
+        }
+    }
+
+    #[test]
+    fn the_most_recent_tabs_wait_longer_for_their_first_release() {
+        let now = Instant::now();
+        // Tab 1 was shown last, tab 3 longest ago; all hidden 20 s or more.
+        let tabs = [
+            tab(1, Duration::from_secs(20), now),
+            tab(2, Duration::from_secs(40), now),
+            tab(3, Duration::from_secs(50), now),
+        ];
+        let mut policy = TabMemoryPolicy {
+            release_after: vec![Duration::from_secs(15), Duration::from_secs(5 * 60)],
+            recent: 2,
+            recent_release_after: Duration::from_secs(60),
+            ..TabMemoryPolicy::default()
+        };
+        assert_eq!(
+            policy.tick(now, MemoryPressure::Normal, &tabs),
+            vec![TabAction::Release(3)],
+            "the third most recent releases on the usual 15 s"
+        );
+        let later = now + Duration::from_secs(25);
+        assert_eq!(
+            policy.tick(later, MemoryPressure::Normal, &tabs),
+            vec![TabAction::Release(2)],
+            "the second most recent after its minute"
+        );
+        // Tab 1 is no longer among the two most recent once two newer tabs
+        // are hidden: its usual time has passed, so it releases now.
+        let mut more = tabs.to_vec();
+        more.push(tab(4, Duration::from_secs(1), later));
+        more.push(tab(5, Duration::from_secs(2), later));
+        assert!(
+            policy
+                .tick(later, MemoryPressure::Normal, &more)
+                .contains(&TabAction::Release(1))
+        );
+        assert_eq!(
+            TabMemoryPolicy::<u32>::default().recent,
+            0,
+            "none by default"
+        );
     }
 }
