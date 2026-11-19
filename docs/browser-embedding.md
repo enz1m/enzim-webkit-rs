@@ -355,9 +355,11 @@ the next navigation interrupts it, so start the next navigation with
 `begin_load_uri`; a synchronous `load` would report the interruption.
 
 A gesture-authorized middle-button link activation becomes a
-`PopupRequested { user_initiated: true }` screened by the Popup policy, and the
-source view does not navigate. This includes same-document links. If the policy
-refuses, nothing opens. The host opens the tab in the source tab's profile.
+`PopupRequested { user_initiated: true, background: true, .. }` screened by
+the Popup policy. The source view stays on the current page, including for
+same-document links. If the policy allows it, open the tab in the source
+tab's profile. `PopupOpened` also reports `background` for popups that WebKit
+creates directly, so the host can keep the current tab selected.
 
 `set_preferred_dark(bool)` sets `prefers-color-scheme` through the display's
 native settings. Loaded pages receive `matchMedia` change events; no script or
