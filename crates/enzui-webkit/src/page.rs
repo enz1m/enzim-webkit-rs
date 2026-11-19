@@ -771,6 +771,10 @@ pub enum PageEvent {
         url: PolicyUrl,
         /// Whether a person's gesture opened it.
         user_initiated: bool,
+        /// The person asked for it without leaving the page: a link opened
+        /// with the middle button. A browser opens it behind the page in
+        /// view.
+        background: bool,
     },
     /// The page opened a window and the engine made it a real view
     /// (`WebSession::set_popups` enabled
@@ -783,6 +787,9 @@ pub enum PageEvent {
         url: PolicyUrl,
         /// Whether a person's gesture opened it.
         user_initiated: bool,
+        /// Opened with the middle button; see
+        /// [`PageEvent::PopupRequested::background`].
+        background: bool,
     },
     /// A popup that was never taken closed itself (`window.close()`) and
     /// was released, or the host discarded it.

@@ -904,6 +904,7 @@ impl PageHub {
         opener: *mut ffi::WebKitWebView,
         url: PolicyUrl,
         user_initiated: bool,
+        background: bool,
     ) -> *mut ffi::WebKitWebView {
         let template = {
             let state = this.state.borrow();
@@ -916,6 +917,7 @@ impl PageHub {
             this.push(PageEvent::PopupRequested {
                 url,
                 user_initiated,
+                background,
             });
             return core::ptr::null_mut();
         };
@@ -932,6 +934,7 @@ impl PageHub {
                     id,
                     url,
                     user_initiated,
+                    background,
                 });
                 view
             }
@@ -939,6 +942,7 @@ impl PageHub {
                 this.push(PageEvent::PopupRequested {
                     url,
                     user_initiated,
+                    background,
                 });
                 core::ptr::null_mut()
             }

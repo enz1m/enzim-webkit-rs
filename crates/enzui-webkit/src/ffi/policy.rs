@@ -1221,6 +1221,7 @@ extern "C" fn on_decide_policy(
                         state.page.push(crate::page::PageEvent::PopupRequested {
                             url: PolicyUrl::new(uri),
                             user_initiated: true,
+                            background: true,
                         })
                     });
                 }
@@ -1490,6 +1491,12 @@ extern "C" fn on_create(
     let uri = unsafe { navigation_uri(action) };
     let gesture =
         !action.is_null() && unsafe { ffi::webkit_navigation_action_is_user_gesture(action) != 0 };
+    // A window asked for with the middle button (a `target` link, say) is
+    // one the person wants behind the page in view.
+    let background = gesture
+        && !action.is_null()
+        // SAFETY: the action is borrowed from this `create` signal for the callback.
+        && unsafe { ffi::webkit_navigation_action_get_mouse_button(action) } == ffi::WPE_BUTTON_MIDDLE;
     if let Ok(uri) = &uri
         && lease.with_state_no_reentry(|state| state.page.capture(uri, gesture, false, true))
     {
@@ -1511,7 +1518,13 @@ extern "C" fn on_create(
         && let Some(url) = reported
     {
         let page = lease.with_state_no_reentry(|state| std::rc::Rc::clone(&state.page));
-        return super::page::PageHub::open_popup(&page, opener, PolicyUrl::new(url), gesture);
+        return super::page::PageHub::open_popup(
+            &page,
+            opener,
+            PolicyUrl::new(url),
+            gesture,
+            background,
+        );
     }
     ptr::null_mut()
 }

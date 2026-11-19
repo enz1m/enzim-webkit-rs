@@ -878,6 +878,7 @@ mod gates {
             PageEvent::PopupRequested {
                 url,
                 user_initiated,
+                ..
             } => Some((url.as_str().to_owned(), *user_initiated)),
             _ => None,
         });
