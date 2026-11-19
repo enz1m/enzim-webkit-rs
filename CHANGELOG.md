@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0 — 2026-11-19
+
+- Allow recently viewed tabs to defer their first background memory release.
+- Forward pointer hover to unfocused web views.
+- Include middle-button background intent in popup events.
+- Support authenticated HTTP and SOCKS5 upstream proxies.
+- Update the public enzUI and iced pins and select native runtime v0.1.1.
+
 ## 0.1.0 — 2026-11-18
 
 - Initial Rust integration for the maintained enzim WebKit engine.
