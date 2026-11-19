@@ -492,3 +492,45 @@ fn window_reactivation_cannot_revive_hidden_or_replaced_page_ownership() {
     assert!(messages.is_empty());
     assert_eq!(captured, [false, false]);
 }
+
+#[test]
+fn an_unfocused_window_keeps_page_hover_but_not_presses() {
+    let unfocused = (
+        iced::Event::Window(iced::window::Event::Unfocused),
+        mouse::Cursor::Available(Point::new(20.0, 20.0)),
+    );
+    let events = [
+        unfocused.clone(),
+        (
+            iced::Event::Mouse(mouse::Event::CursorMoved {
+                position: Point::new(20.0, 20.0),
+            }),
+            mouse::Cursor::Available(Point::new(20.0, 20.0)),
+        ),
+        (
+            iced::Event::Mouse(mouse::Event::CursorMoved {
+                position: Point::new(30.0, 25.0),
+            }),
+            mouse::Cursor::Available(Point::new(30.0, 25.0)),
+        ),
+        (
+            iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)),
+            mouse::Cursor::Available(Point::new(30.0, 25.0)),
+        ),
+    ];
+    let (messages, _) = routed_sequence(&events, false);
+    let moves = messages
+        .iter()
+        .filter(|event| matches!(event, InputEvent::PointerMoved { .. }))
+        .count();
+    assert_eq!(
+        moves, 2,
+        "hover follows the pointer over an unfocused window: {messages:?}"
+    );
+    assert!(
+        !messages
+            .iter()
+            .any(|event| matches!(event, InputEvent::PointerPressed { .. })),
+        "a press waits for focus: {messages:?}"
+    );
+}

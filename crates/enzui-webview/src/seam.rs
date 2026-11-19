@@ -925,8 +925,14 @@ where
         // intentionally does not clip: a press paired with its release
         // is a single interaction the page owns until the button lifts.
         // Hovered wheels scroll without acquiring keyboard or IME ownership.
+        // Pointer motion reaches the page while the window is unfocused, as
+        // in other browsers, so hover effects follow the pointer; presses and
+        // keys still wait for focus.
         let accepts_input = state.window_focused
-            || matches!(event, Event::Mouse(mouse::Event::WheelScrolled { .. }));
+            || matches!(
+                event,
+                Event::Mouse(mouse::Event::WheelScrolled { .. } | mouse::Event::CursorMoved { .. })
+            );
         let routed = (self.input_visible && self.on_input.is_some() && accepts_input)
             .then_some(())
             .and_then(|_| {
