@@ -11,8 +11,8 @@ The Rust crates keep their `enzui-webkit` and `enzui-webview` names.
 | `webview-probe` | Interactive embedding example and diagnostic application |
 
 The engine depends on enzUI's security primitives, without pulling in iced or
-GTK. The adapter uses [enzUI Alpha 0.2](https://github.com/enz1m/enzui/releases/tag/v0.2.0-alpha.1)
-and its pinned public foundation forks. No sibling framework checkout is needed.
+GTK. The adapter uses [enzUI](https://github.com/enz1m/enzui) and its pinned
+public foundation forks. The matching revisions are in `Cargo.toml`. No sibling framework checkout is needed.
 This is a developer alpha. Native engine binaries are distributed separately
 from the Rust source. The probe uses Wayland by default; add `--features webview-probe/x11`
 for X11 support.
