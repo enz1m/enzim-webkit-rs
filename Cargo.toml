@@ -18,12 +18,12 @@ unsafe_code = "deny"
 [workspace.dependencies]
 enzui-webkit = { path = "crates/enzui-webkit" }
 enzui-webview = { path = "crates/enzui-webview" }
-enzui-security = { git = "https://github.com/enz1m/enzui.git", rev = "f48e48082ce968d57734fd9ef090c9131572e179" }
-enzui-core = { git = "https://github.com/enz1m/enzui.git", rev = "f48e48082ce968d57734fd9ef090c9131572e179" }
-enzui-services = { git = "https://github.com/enz1m/enzui.git", rev = "f48e48082ce968d57734fd9ef090c9131572e179" }
-enzui-theme = { git = "https://github.com/enz1m/enzui.git", rev = "f48e48082ce968d57734fd9ef090c9131572e179" }
-enzui-widgets = { git = "https://github.com/enz1m/enzui.git", rev = "f48e48082ce968d57734fd9ef090c9131572e179" }
-enzui-external-image = { git = "https://github.com/enz1m/enzui.git", rev = "f48e48082ce968d57734fd9ef090c9131572e179" }
+enzui-security = { git = "https://github.com/enz1m/enzui.git", rev = "7926bbac9e3c9a9ca2992b954e7a0252f131aeab" }
+enzui-core = { git = "https://github.com/enz1m/enzui.git", rev = "7926bbac9e3c9a9ca2992b954e7a0252f131aeab" }
+enzui-services = { git = "https://github.com/enz1m/enzui.git", rev = "7926bbac9e3c9a9ca2992b954e7a0252f131aeab" }
+enzui-theme = { git = "https://github.com/enz1m/enzui.git", rev = "7926bbac9e3c9a9ca2992b954e7a0252f131aeab" }
+enzui-widgets = { git = "https://github.com/enz1m/enzui.git", rev = "7926bbac9e3c9a9ca2992b954e7a0252f131aeab" }
+enzui-external-image = { git = "https://github.com/enz1m/enzui.git", rev = "7926bbac9e3c9a9ca2992b954e7a0252f131aeab" }
 iced = { git = "https://github.com/enz1m/enzim-iced.git", rev = "e36b07b591661fdb666088fc943cc0b927a2367b", default-features = false, features = [
     "wgpu",
     "tiny-skia",

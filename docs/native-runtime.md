@@ -11,11 +11,10 @@ FFI/credential-guard bridge. It does not contain or build the WebKit engine.
 | Flatpak runtime packaging | `enzim-webkit-flatpak` |
 
 [`runtime/engine.json`](../runtime/engine.json) selects an engine by immutable
-fork commit and ABI. The maintained selection is the baseline x86-64 PGO build.
-Its compatible-build list retains previously qualified builds of the same engine
-implementation; the newer source selection adds an optional CPU target and build
-documentation. This list does not admit older engine variants with different
-runtime behavior.
+fork commit and ABI. The matching release is
+[enzim-webkit v0.1.1](https://github.com/enz1m/enzim-webkit/releases/tag/v0.1.1),
+the baseline x86-64 PGO build with asynchronous scaling for large images. The
+manifest also accepts specific earlier builds that were qualified for this ABI.
 
 ## Application builds
 
