@@ -31,7 +31,8 @@ The app ID must match `[Application] name` in `/.flatpak-info`. Registration
 sets GLib's program identity, checks any existing `GApplication` ID, validates the
 guard and enables the Flatpak policy used by default constructors, including
 profiled and deferred construction. Register before any WPE initialization;
-configuration is frozen afterward. A changed identity is refused.
+configuration is frozen afterward. A changed identity is refused. The public
+sandbox preflight uses the same deployment policy after registration.
 
 Outside Flatpak use normal constructors and the default bubblewrap policy.
 `set_application_id` is available separately for non-Flatpak hosts that need a

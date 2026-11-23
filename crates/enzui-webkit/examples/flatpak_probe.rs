@@ -64,6 +64,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     } else {
         configure_flatpak_application(application, app_prefix.join("lib/wpe-extensions"))?;
     }
+    enzui_webkit::sandbox::preflight().map_err(|error| format!("{error:?}"))?;
     for invalid in ["invalid", "dev.example.Bad\0Id"] {
         assert!(set_application_id(invalid).is_err());
     }

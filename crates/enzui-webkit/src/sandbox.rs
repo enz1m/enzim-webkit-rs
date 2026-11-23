@@ -340,14 +340,19 @@ fn lossy(value: &OsString) -> (String, bool) {
 /// Refuse to start a native session when the environment would weaken or skip
 /// WebProcess sandboxing.
 ///
-/// Reads the real environment and rejects containers WebKit will not
-/// bubblewrap in; see [`preflight_in`] for the testable core.
+/// Uses the same outer-sandbox policy as the default native session
+/// constructors. Flatpak applications must register their deployment before
+/// this check. Each renderer still requires its own isolation proof.
 ///
 /// # Errors
 ///
 /// [`SandboxRefusal`], naming the exact variable or container.
 pub fn preflight() -> Result<(), SandboxRefusal> {
-    preflight_in(&RealEnv, OuterSandbox::Rejected)
+    #[cfg(feature = "wpe")]
+    let outer = crate::ffi::deployment::sandbox_policy();
+    #[cfg(not(feature = "wpe"))]
+    let outer = OuterSandbox::Rejected;
+    preflight_in(&RealEnv, outer)
 }
 
 /// [`preflight`] against an injected environment and an explicit outer-sandbox
