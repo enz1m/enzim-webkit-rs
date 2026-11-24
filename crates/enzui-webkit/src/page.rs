@@ -141,6 +141,9 @@ pub struct WindowFeatures {
 }
 
 /// A script dialog waiting for the host.
+///
+/// The engine does not report the requesting frame, and an embedded
+/// cross-origin frame can open one, so the top-level site does not vouch for it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScriptDialogRequest {
     /// Quote this in the answer.
