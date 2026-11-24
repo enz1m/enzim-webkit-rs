@@ -2496,6 +2496,13 @@ unsafe extern "C" {
 unsafe extern "C" {
     /// Source: glib/gobject/gobject.h; returns borrowed object-associated data.
     pub fn g_object_get_data(object: *mut c_void, key: *const c_char) -> *mut c_void;
+    /// Source: glib/gobject/gobject.h; `destroy` frees `data` when replaced or finalized.
+    pub fn g_object_set_data_full(
+        object: *mut c_void,
+        key: *const c_char,
+        data: *mut c_void,
+        destroy: Option<extern "C" fn(*mut c_void)>,
+    );
     /// Source: glib/gmain.h; owns data until the source's destroy callback.
     pub fn g_timeout_add_full(
         priority: c_int,

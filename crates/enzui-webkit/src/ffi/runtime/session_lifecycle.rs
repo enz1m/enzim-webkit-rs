@@ -1432,6 +1432,7 @@ impl WebSession {
                 c_host.as_ptr(),
             );
             ffi::g_object_unref(cert.cast::<std::ffi::c_void>());
+            crate::ffi::policy::exceptions::record(network_session.as_ptr(), &identity);
         }
         if let Some(binding) = self.native_policy.as_ref() {
             binding.record_pre_trust(crate::ffi::policy::PreTrustEvent {
@@ -1626,6 +1627,20 @@ impl WebSession {
         // SAFETY: `uri` is null or a readable NUL-terminated string borrowed
         // from the live view for the duration of this call.
         unsafe { current_uri_from_native(uri) }
+    }
+
+    /// Whether this view's network session continues past a failed
+    /// certificate for `host`, a URL host (bracketed IPv6 accepted). Such an
+    /// exception covers every view sharing the network session until the
+    /// session is dropped.
+    #[must_use]
+    pub fn has_certificate_exception(&self, host: &str) -> bool {
+        // SAFETY: a live view on the owning thread; the borrowed session is
+        // live for as long as the view.
+        unsafe {
+            let session = ffi::webkit_web_view_get_network_session(self.web_view);
+            crate::ffi::policy::exceptions::contains(session, host)
+        }
     }
 
     /// Read a cheap per-session revision without copying native property strings.

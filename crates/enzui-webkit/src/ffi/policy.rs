@@ -1789,6 +1789,9 @@ fn apply_tls_continuation(continuation: &TlsContinuation) {
             continuation.certificate,
             continuation.host.as_ptr(),
         );
+        if let Ok(host) = continuation.host.to_str() {
+            exceptions::record(continuation.network_session, host);
+        }
         ffi::webkit_web_view_load_uri(continuation.web_view, continuation.failing_uri.as_ptr());
     }
 }
@@ -2412,6 +2415,7 @@ unsafe fn c_string(value: *const c_char) -> String {
     String::from_utf8_lossy(bytes).into_owned()
 }
 
+pub(crate) mod exceptions;
 mod host_identity;
 mod records;
 pub use self::host_identity::certificate_authorization_host;
