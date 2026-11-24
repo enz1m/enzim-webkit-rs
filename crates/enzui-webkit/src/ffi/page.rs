@@ -373,6 +373,9 @@ struct HubState {
     /// The last committed non-inert address, which a reload after a renderer
     /// crash returns to.
     last_committed: Option<String>,
+    /// The address of the document on show: set when a document commits and
+    /// followed by same-origin URI changes, never by a pending cross-origin load.
+    committed_uri: Option<String>,
     /// The URLs the current document has had, oldest first, including
     /// same-document `pushState`/`replaceState` changes; restarted when a
     /// document commits and bounded to [`MAX_DOCUMENT_URIS`].
@@ -500,7 +503,7 @@ impl PageHub {
             &event,
             PageEvent::TitleChanged(_)
                 | PageEvent::UriChanged(_)
-                | PageEvent::Load(LoadStage::Started)
+                | PageEvent::Load(LoadStage::Started | LoadStage::Committed)
         ) {
             self.mark_metadata_changed();
         }
@@ -515,6 +518,13 @@ impl PageHub {
         }
         if let PageEvent::UriChanged(uri) = &event {
             let uri = uri.as_str();
+            if state
+                .committed_uri
+                .as_deref()
+                .is_some_and(|committed| same_document_origin(committed, uri))
+            {
+                state.committed_uri = Some(uri.to_owned());
+            }
             state.document_uris.retain(|known| known != uri);
             if state.document_uris.len() >= MAX_DOCUMENT_URIS {
                 state.document_uris.pop_front();
@@ -681,6 +691,23 @@ impl PageHub {
 
     pub(crate) fn last_committed(&self) -> Option<String> {
         self.state.borrow().last_committed.clone()
+    }
+
+    pub(crate) fn committed_uri(&self) -> Option<String> {
+        self.state.borrow().committed_uri.clone()
+    }
+
+    fn commit_document(&self, uri: Option<&str>) {
+        let mut state = self.state.borrow_mut();
+        // A new document: its URL history starts at the committed URL.
+        state.document_uris.clear();
+        state.committed_uri = uri.map(str::to_owned);
+        if let Some(uri) = uri {
+            state.document_uris.push_back(uri.to_owned());
+            if !crate::ffi::runtime::is_inert_url(uri) {
+                state.last_committed = Some(uri.to_owned());
+            }
+        }
     }
 
     /// Makes this (a new popup's) hub inherit from its opener's: captures
@@ -2721,17 +2748,19 @@ extern "C" fn on_load_changed(view: *mut ffi::WebKitWebView, event: c_int, data:
     if stage == LoadStage::Committed {
         // SAFETY: the emitting view is live; its URI is copied, bounded.
         let uri = unsafe { native_uri(ffi::webkit_web_view_get_uri(view).cast()) };
-        let mut state = hub.state.borrow_mut();
-        // A new document: its URL history starts at the committed URL.
-        state.document_uris.clear();
-        if let Some(uri) = uri {
-            state.document_uris.push_back(uri.as_str().to_owned());
-            if !crate::ffi::runtime::is_inert_url(uri.as_str()) {
-                state.last_committed = Some(uri.as_str().to_owned());
-            }
-        }
+        hub.commit_document(uri.as_ref().map(PolicyUrl::as_str));
     }
     hub.push(PageEvent::Load(stage));
+}
+
+// History API and fragment changes stay within the document's origin; a
+// pending navigation elsewhere is not the document on show.
+fn same_document_origin(committed: &str, uri: &str) -> bool {
+    if committed.starts_with("file:") && uri.starts_with("file:") {
+        return true;
+    }
+    crate::local_origins::url_origin(committed)
+        .is_some_and(|origin| crate::local_origins::url_origin(uri) == Some(origin))
 }
 
 extern "C" fn on_web_process_terminated(
@@ -4177,6 +4206,39 @@ mod metadata_revision_tests {
                 "failed native operation became a successful readiness reply"
             );
         }
+    }
+
+    #[test]
+    fn committed_uri_ignores_pending_cross_origin_addresses() {
+        let hub = PageHub::default();
+        hub.push(PageEvent::UriChanged(PolicyUrl::new(
+            "https://bank.example/",
+        )));
+        assert_eq!(
+            hub.committed_uri(),
+            None,
+            "an uncommitted popup took its target's address"
+        );
+        hub.commit_document(Some("https://news.example/a"));
+        hub.push(PageEvent::UriChanged(PolicyUrl::new(
+            "https://bank.example/login",
+        )));
+        assert_eq!(
+            hub.committed_uri().as_deref(),
+            Some("https://news.example/a")
+        );
+        hub.push(PageEvent::UriChanged(PolicyUrl::new(
+            "https://news.example/b#c",
+        )));
+        assert_eq!(
+            hub.committed_uri().as_deref(),
+            Some("https://news.example/b#c")
+        );
+        hub.commit_document(Some("https://bank.example/login"));
+        assert_eq!(
+            hub.committed_uri().as_deref(),
+            Some("https://bank.example/login")
+        );
     }
 
     #[test]

@@ -1629,6 +1629,18 @@ impl WebSession {
         unsafe { current_uri_from_native(uri) }
     }
 
+    /// The address of the document on show, for display and attribution.
+    ///
+    /// Unlike [`current_uri`](Self::current_uri), which follows a pending load
+    /// as soon as it starts, this changes when a document commits or the
+    /// document moves within its own origin (history API, fragments). `None`
+    /// until a document commits, as for a popup still on its opener-controlled
+    /// initial document.
+    #[must_use]
+    pub fn committed_uri(&self) -> Option<String> {
+        self.page_hub.committed_uri()
+    }
+
     /// Whether this view's network session continues past a failed
     /// certificate for `host`, a URL host (bracketed IPv6 accepted). Such an
     /// exception covers every view sharing the network session until the
