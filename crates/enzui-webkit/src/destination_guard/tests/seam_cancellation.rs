@@ -348,7 +348,69 @@ fn repeated_worker_wakes_do_not_restart_the_resolver_deadline() {
             .starts_with(b"HTTP/1.1 403"),
         "resolver wait outlived repeated wakes"
     );
-    assert_eq!(poison, Some(SeamFailure::Unavailable));
+    assert_eq!(poison, None, "a resolver timeout poisoned the seam");
     assert_eq!(active, 1, "timeout released a running callback's permit");
     assert!(connector.seen().is_empty());
+}
+
+struct FirstCallHeldResolver {
+    held: AtomicBool,
+    entered: SyncSender<()>,
+    release: Mutex<Receiver<()>>,
+}
+
+impl Resolver for FirstCallHeldResolver {
+    fn resolve(&self, _: &str, _: u16) -> std::io::Result<Vec<SocketAddr>> {
+        if !self.held.swap(true, Ordering::SeqCst) {
+            let _ = self.entered.send(());
+            let _ = self.release.lock().unwrap().recv();
+        }
+        Ok(vec![public_addr(80)])
+    }
+}
+
+#[test]
+fn resolver_timeouts_and_an_exhausted_helper_budget_refuse_only_their_request() {
+    let (entered_send, entered_receive) = sync_channel(1);
+    let (release_send, release_receive) = sync_channel(1);
+    let fixture = Fixture::start(OK_RESPONSE);
+    let connector = RecordingConnector::new(fixture.addr);
+    let budget = Arc::new(seam_budget::Budget::new(1));
+    let guard = DestinationGuard::start_with_runtime_seams(
+        DestinationPolicy::default().allowing_cleartext(),
+        Arc::new(FirstCallHeldResolver {
+            held: AtomicBool::new(false),
+            entered: entered_send,
+            release: Mutex::new(release_receive),
+        }),
+        connector.clone(),
+        Arc::new(SystemTimeouts),
+        Arc::new(TcpListenerWake),
+        SeamDeadlines {
+            resolve: Duration::from_millis(50),
+            connect: SEAM_CALL_TIMEOUT,
+        },
+        budget.clone(),
+    )
+    .unwrap();
+    let request = "GET http://example.com/ HTTP/1.1\r\nHost: example.com\r\n\r\n";
+    let timed_out = proxy(&guard, request);
+    entered_receive
+        .recv_timeout(Duration::from_secs(2))
+        .unwrap();
+    let exhausted = proxy(&guard, request);
+    let poisoned_while_held = guard.seam_poisoned();
+    release_send.send(()).unwrap();
+    wait_until(|| budget.active() == 0);
+    let recovered = proxy(&guard, request);
+    for refused in [&timed_out, &exhausted] {
+        assert!(refused.starts_with("HTTP/1.1 403"), "{refused}");
+        assert!(refused.contains("X-Enzui-Destination: seam-unavailable"));
+    }
+    assert!(!poisoned_while_held, "a refusal poisoned the seam");
+    assert!(
+        recovered.ends_with("FIXTURE"),
+        "the guard stayed refused after its resolver recovered: {recovered}"
+    );
+    assert_eq!(connector.seen(), vec![public_addr(80)]);
 }

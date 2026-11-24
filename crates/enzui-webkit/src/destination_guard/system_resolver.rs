@@ -14,8 +14,7 @@
 //! one at once.
 //!
 //! A lookup that outlasts [`LOOKUP_DEADLINE`] fails as an ordinary resolution
-//! error. It must not reach the guard's seam deadline, which treats an overrun
-//! as a broken callback and refuses every later request.
+//! error before the guard's seam deadline refuses the request.
 
 use crate::name_lookup::{Family, family_lookup};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
@@ -31,7 +30,7 @@ const REPEAT_AFTER: Duration = Duration::from_millis(400);
 /// never an overrun of the seam deadline.
 const LOOKUP_DEADLINE: Duration = Duration::from_secs(8);
 /// Lookups left running after their answer stopped mattering are bounded;
-/// past this many the combined blocking lookup is used instead.
+/// past this many a new name is refused rather than resolved without a deadline.
 const MAX_LOOKUP_THREADS: usize = 64;
 
 type Lookup = std::io::Result<Vec<SocketAddr>>;
@@ -65,8 +64,13 @@ pub(super) fn resolve(host: &str, port: u16) -> Lookup {
             })
             .is_ok()
     };
-    if !(lookup(Family::V4) && lookup(Family::V6)) {
-        return combined(host, port);
+    // A family that could not start is a silent family: repeated once, bounded by the deadline.
+    let started = [lookup(Family::V4), lookup(Family::V6)];
+    if started == [false, false] {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::ResourceBusy,
+            "too many name lookups in progress",
+        ));
     }
     let waits = Waits {
         delay: RESOLUTION_DELAY,
@@ -83,10 +87,6 @@ pub(super) struct Waits {
     pub repeat_after: Duration,
     /// When the lookup fails with whatever it has.
     pub deadline: Duration,
-}
-
-fn combined(host: &str, port: u16) -> Lookup {
-    crate::name_lookup::combined(host, port)
 }
 
 /// Join the two family answers as they arrive.

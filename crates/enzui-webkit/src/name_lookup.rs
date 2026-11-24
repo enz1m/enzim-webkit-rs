@@ -6,9 +6,11 @@
 // `unsafe_code` is allowed for this module by the `#[allow(unsafe_code)]` on its
 // declaration in `lib.rs`.
 
+use std::net::SocketAddr;
+#[cfg(not(target_os = "linux"))]
+use std::net::ToSocketAddrs;
 #[cfg(target_os = "linux")]
 use std::net::{Ipv4Addr, Ipv6Addr};
-use std::net::{SocketAddr, ToSocketAddrs};
 
 /// One address family of a lookup.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -20,11 +22,6 @@ pub(crate) enum Family {
 }
 
 type Lookup = std::io::Result<Vec<SocketAddr>>;
-
-/// Both families in one blocking call, as `std` resolves them.
-pub(crate) fn combined(host: &str, port: u16) -> Lookup {
-    (host, port).to_socket_addrs().map(Iterator::collect)
-}
 
 /// The addresses of one family, in the system's order. A name without an
 /// address of that family yields an empty list rather than an error.
@@ -131,8 +128,8 @@ pub(crate) fn family_lookup(host: &str, port: u16, family: Family) -> Lookup {
 /// Without a per-family binding, filter the combined answer.
 #[cfg(not(target_os = "linux"))]
 pub(crate) fn family_lookup(host: &str, port: u16, family: Family) -> Lookup {
-    Ok(combined(host, port)?
-        .into_iter()
+    Ok((host, port)
+        .to_socket_addrs()?
         .filter(|address| address.is_ipv4() == (family == Family::V4))
         .collect())
 }

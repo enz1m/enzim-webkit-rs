@@ -43,8 +43,8 @@ const MAX_INTERIM_RESPONSES: usize = 32;
 /// DNS and connect deadlines. Each host seam call runs on its own bounded
 /// helper thread, and calls are not serialized, so a callback may drive a
 /// second authenticated request through the same guard concurrently rather
-/// than deadlocking against the first. A genuine panic or timeout poisons the
-/// seam so no later request calls it again (see [`Shared::call_seam_bounded`]).
+/// than deadlocking against the first. A timeout refuses only its own request;
+/// a panic poisons the seam (see [`Shared::call_seam_bounded`]).
 const RESOLVE_TIMEOUT: Duration = Duration::from_secs(10);
 const UPSTREAM_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const SEAM_CALL_TIMEOUT: Duration = Duration::from_secs(11);
@@ -289,8 +289,9 @@ pub enum GuardEvent {
         /// The target that was being judged, redacted.
         target: PolicyUrl,
     },
-    /// A resolver/connector exceeded its finite deadline or disconnected. The
-    /// seam is poisoned and later requests fail closed without invoking it.
+    /// A resolver/connector exceeded its finite deadline, the shared helper
+    /// budget was exhausted, or the seam was already poisoned. The request is
+    /// refused without an upstream socket.
     SeamUnavailable {
         /// The target that was being judged, redacted.
         target: PolicyUrl,
@@ -431,8 +432,9 @@ impl Shared {
     }
 
     // Host callbacks run lock-free on bounded helpers, allowing nested authenticated requests.
-    // The first panic, timeout or spawn failure poisons admission and completion; even
-    // a successful connection is discarded if another call installed poison first.
+    // The first panic poisons admission and completion; even a successful connection is
+    // discarded if another call installed poison first. A timed-out callback keeps its
+    // helper permit, so the shared budget bounds hung callbacks without poisoning.
     fn call_seam_bounded<T: Send + 'static>(
         &self,
         timeout: Duration,
@@ -450,7 +452,7 @@ impl Shared {
             control.peak = control.peak.max(control.live);
         }
         let Some(permit) = self.helper_budget.acquire() else {
-            return Err(self.finish_seam_failure(SeamFailure::Unavailable));
+            return Err(self.finish_seam_refusal());
         };
         let (send, receive) = sync_channel(1);
         let wake = std::thread::current();
@@ -465,7 +467,7 @@ impl Shared {
             })
             .is_err()
         {
-            return Err(self.finish_seam_failure(SeamFailure::Unavailable));
+            return Err(self.finish_seam_refusal());
         }
         let started = std::time::Instant::now();
         loop {
@@ -476,7 +478,7 @@ impl Shared {
             }
             let remaining = timeout.saturating_sub(started.elapsed());
             if remaining.is_zero() {
-                return Err(self.finish_seam_failure(SeamFailure::Unavailable));
+                return Err(self.finish_seam_refusal());
             }
             match receive.try_recv() {
                 Ok(Ok(value)) => return self.finish_seam_success(value),
@@ -508,7 +510,15 @@ impl Shared {
         }
     }
 
-    /// Complete a call whose callback panicked, timed out, or never spawned:
+    /// Complete a call that ran out of time or helpers: account it out and
+    /// refuse this request only.
+    fn finish_seam_refusal(&self) -> SeamFailure {
+        let mut control = self.seam.lock().unwrap_or_else(|e| e.into_inner());
+        control.live -= 1;
+        control.poison.unwrap_or(SeamFailure::Unavailable)
+    }
+
+    /// Complete a call whose callback panicked or vanished without an answer:
     /// account it out and install `own` as the poison cause unless a truthful
     /// cause is already present, then return whichever cause now stands.
     fn finish_seam_failure(&self, own: SeamFailure) -> SeamFailure {
@@ -553,7 +563,7 @@ impl Shared {
     }
 }
 
-// Panics, admission failures and deadlines poison the seam; shutdown only cancels its wait.
+// Panics poison the seam; deadlines, helper exhaustion and shutdown refuse one request.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum SeamFailure {
     Panicked,
