@@ -985,15 +985,16 @@ pub enum PageEvent {
 pub const MAX_DOWNLOAD_NAME_BYTES: usize = 200;
 
 /// Makes a server-suggested download name safe to create inside a directory:
-/// the last path component only, no control characters, no leading dots (no
-/// hidden files, no `..`), at most [`MAX_DOWNLOAD_NAME_BYTES`], and
-/// `download` when nothing is left.
+/// the last path component only, no control or Unicode format characters
+/// (bidi overrides, isolates, zero-width marks), no leading dots (no hidden
+/// files, no `..`), at most [`MAX_DOWNLOAD_NAME_BYTES`], and `download` when
+/// nothing is left.
 #[must_use]
 pub fn safe_download_name(suggested: &str) -> String {
     let last = suggested.rsplit(['/', '\\']).next().unwrap_or_default();
     let cleaned: String = last
         .chars()
-        .filter(|c| !c.is_control())
+        .filter(|&c| !c.is_control() && !is_format_char(c))
         .collect::<String>()
         .trim()
         .trim_start_matches('.')
@@ -1004,6 +1005,34 @@ pub fn safe_download_name(suggested: &str) -> String {
         name = "download".into();
     }
     name
+}
+
+// General category Cf as of Unicode 16.
+fn is_format_char(c: char) -> bool {
+    matches!(
+        c,
+        '\u{00AD}'
+            | '\u{0600}'..='\u{0605}'
+            | '\u{061C}'
+            | '\u{06DD}'
+            | '\u{070F}'
+            | '\u{0890}'..='\u{0891}'
+            | '\u{08E2}'
+            | '\u{180E}'
+            | '\u{200B}'..='\u{200F}'
+            | '\u{202A}'..='\u{202E}'
+            | '\u{2060}'..='\u{2064}'
+            | '\u{2066}'..='\u{206F}'
+            | '\u{FEFF}'
+            | '\u{FFF9}'..='\u{FFFB}'
+            | '\u{110BD}'
+            | '\u{110CD}'
+            | '\u{13430}'..='\u{1343F}'
+            | '\u{1BCA0}'..='\u{1BCA3}'
+            | '\u{1D173}'..='\u{1D17A}'
+            | '\u{E0001}'
+            | '\u{E0020}'..='\u{E007F}'
+    )
 }
 
 fn bounded_text(mut text: String, max: usize) -> String {
@@ -1103,5 +1132,32 @@ impl PartialEq for PartialDownload {
             && self.received == other.received
             && self.response == other.response
             && self.path == other.path
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::safe_download_name;
+
+    #[test]
+    fn download_names_drop_format_characters_that_disguise_the_extension() {
+        assert_eq!(
+            safe_download_name("invoice\u{202E}fdp.exe"),
+            "invoicefdp.exe"
+        );
+        assert_eq!(
+            safe_download_name("report\u{2067}\u{2066}cod.\u{2069}scr"),
+            "reportcod.scr"
+        );
+        assert_eq!(
+            safe_download_name("a\u{200B}b\u{200D}c\u{FEFF}.txt"),
+            "abc.txt"
+        );
+        assert_eq!(
+            safe_download_name("\u{061C}\u{E0041}.\u{00AD}bashrc"),
+            "bashrc"
+        );
+        assert_eq!(safe_download_name("\u{202D}\u{2060}"), "download");
+        assert_eq!(safe_download_name("Résumé – 日本.pdf"), "Résumé – 日本.pdf");
     }
 }
