@@ -218,6 +218,23 @@ fn tunnel_capacity_refuses_overflow_and_releases_closed_slots() {
     let _recovered = establish(&guard, 130);
 }
 
+// Generic XDP on loopback can drop a large coalesced packet until a retransmission
+// timeout; 4 KiB records keep the fixture's own bulk sends in small packets.
+fn send_records(socket: &TcpStream, bytes: &[u8]) -> std::io::Result<()> {
+    use rustix::net::SendFlags;
+    for record in bytes.chunks(4096) {
+        let mut sent = 0;
+        while sent < record.len() {
+            sent += rustix::net::send(
+                socket,
+                &record[sent..],
+                SendFlags::EOR | SendFlags::NOSIGNAL,
+            )?;
+        }
+    }
+    Ok(())
+}
+
 #[test]
 fn tunnel_backpressure_preserves_bytes_and_half_closes() {
     let origin = IdleOrigin::start();
@@ -245,10 +262,10 @@ fn tunnel_backpressure_preserves_bytes_and_half_closes() {
         .map(|index| (index % 239) as u8)
         .collect::<Vec<_>>();
     std::thread::scope(|scope| {
-        let mut writer = client.try_clone().expect("client writer");
+        let writer = client.try_clone().expect("client writer");
         let payload = &upload;
         let sent = scope.spawn(move || {
-            writer.write_all(payload).expect("upload");
+            send_records(&writer, payload).expect("upload");
             writer.shutdown(Shutdown::Write).expect("upload EOF");
         });
         std::thread::sleep(Duration::from_millis(100));
@@ -267,9 +284,7 @@ fn tunnel_backpressure_preserves_bytes_and_half_closes() {
         sent.join().expect("upload writer");
         let payload = &download;
         let sent = scope.spawn(move || {
-            upstream
-                .write_all(payload)
-                .expect("download after upload EOF");
+            send_records(&upstream, payload).expect("download after upload EOF");
             upstream.shutdown(Shutdown::Write).expect("download EOF");
         });
         std::thread::sleep(Duration::from_millis(100));

@@ -299,11 +299,12 @@ The destination guard queries the loopback interface once at startup. Generic
 XDP on loopback can need one contiguous atomic allocation for a whole packet,
 and a large coalesced packet that fails it is dropped and retransmitted after a
 timeout. On Linux with such an attachment, the relay therefore sends data
-toward the engine in records of at most 4 KiB, each marked `MSG_EOR`: Linux
-merges nothing across that mark, in the send queue or on retransmission, so no
-loopback packet exceeds one record. The send queue keeps its normal size, so a
-record does not wait for the engine to read the previous one. External sockets
-are not changed, and an unavailable query preserves ordinary sends.
+toward the engine, and toward an upstream on the same host, in records of at
+most 4 KiB, each marked `MSG_EOR`: Linux merges nothing across that mark, in the
+send queue or on retransmission, so no loopback packet exceeds one record. The
+send queue keeps its normal size, so a record does not wait for the reader to
+take the previous one. External sockets are not changed, and an unavailable
+query preserves ordinary sends.
 
 `ENZUI_WEBKIT_LOOPBACK_SEND_BUDGET=0` disables the adaptation for diagnostics.
 The guard does not change interface settings, detach packet filters or alter

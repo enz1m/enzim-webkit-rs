@@ -20,6 +20,15 @@ pub(super) fn send_record(socket: &TcpStream, bytes: &[u8]) -> std::io::Result<u
     )?)
 }
 
+/// Whether `socket` reaches its peer through the loopback interface: a
+/// loopback address, or one of this host's own addresses.
+pub(super) fn reaches_peer_over_loopback(socket: &TcpStream) -> bool {
+    match (socket.local_addr(), socket.peer_addr()) {
+        (Ok(local), Ok(peer)) => peer.ip().is_loopback() || peer.ip() == local.ip(),
+        _ => false,
+    }
+}
+
 pub(super) fn needs_records() -> bool {
     if std::env::var_os("ENZUI_WEBKIT_LOOPBACK_SEND_BUDGET").is_some_and(|value| value == "0") {
         return false;

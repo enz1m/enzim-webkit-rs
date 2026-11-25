@@ -225,3 +225,38 @@ fn records_stay_separate_packets_behind_a_reader_that_falls_behind() {
         "{bytes} bytes left in {segments} packets: sends were merged"
     );
 }
+
+#[test]
+fn loopback_records_cover_the_upload_toward_a_loopback_upstream() {
+    let guard = DestinationGuard::start(DestinationPolicy::trusted_local()).expect("guard");
+    let (_client, front) = pair();
+    let (_origin, back) = pair();
+    let lease = guard
+        .shared
+        .register_connection(&front)
+        .expect("client lease");
+    let mut sender = guard.tunnels.sender.clone();
+    sender.loopback_records = true;
+    let permit = sender.reserve().expect("tunnel permit");
+    let tunnel = sender.tunnel(front, back, lease, permit);
+    assert!(tunnel.download.records);
+    assert!(
+        tunnel.upload.records,
+        "loopback upload left in coalesced packets"
+    );
+}
+
+#[test]
+fn only_a_loopback_peer_is_reached_over_loopback() {
+    let (_peer, upstream) = pair();
+    assert!(loopback::reaches_peer_over_loopback(&upstream));
+    let unconnected = rustix::net::socket(
+        rustix::net::AddressFamily::INET,
+        rustix::net::SocketType::STREAM,
+        None,
+    )
+    .expect("unconnected socket");
+    assert!(!loopback::reaches_peer_over_loopback(&TcpStream::from(
+        unconnected
+    )));
+}

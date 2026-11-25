@@ -105,19 +105,32 @@ impl TunnelSender {
         {
             return;
         }
-        let tunnel = Tunnel {
-            client,
-            upstream,
-            _lease: lease,
-            _permit: permit,
-            upload: Direction::new(),
-            download: Direction::new().in_records(self.loopback_records),
-            last_activity: Instant::now(),
-        };
+        let tunnel = self.tunnel(client, upstream, lease, permit);
         // Admission counts both queued and active tunnels, so the queue cannot
         // fill while a permit is held. A stopped relay closes this connection.
         if self.sender.try_send(RelayTunnel::Tcp(tunnel)).is_ok() {
             self.notify();
+        }
+    }
+
+    fn tunnel(
+        &self,
+        client: TcpStream,
+        upstream: TcpStream,
+        lease: ConnectionLease,
+        permit: Permit,
+    ) -> Tunnel {
+        // An upgraded exchange with an allowed local origin also crosses loopback.
+        let upload_records =
+            self.loopback_records && loopback::reaches_peer_over_loopback(&upstream);
+        Tunnel {
+            client,
+            upstream,
+            _lease: lease,
+            _permit: permit,
+            upload: Direction::new().in_records(upload_records),
+            download: Direction::new().in_records(self.loopback_records),
+            last_activity: Instant::now(),
         }
     }
 
