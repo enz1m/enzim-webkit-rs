@@ -41,7 +41,11 @@ fn tunnel(guard: &DestinationGuard, client: TcpStream, upstream: TcpStream) -> T
         client,
         upstream,
         _lease: lease,
-        _permit: guard.tunnels.sender.reserve().expect("tunnel permit"),
+        _permit: guard
+            .tunnels
+            .sender
+            .reserve(std::net::Ipv4Addr::LOCALHOST.into())
+            .expect("tunnel permit"),
         upload: Direction::new(),
         download: Direction::new(),
         last_activity: Instant::now(),
@@ -237,7 +241,9 @@ fn loopback_records_cover_the_upload_toward_a_loopback_upstream() {
         .expect("client lease");
     let mut sender = guard.tunnels.sender.clone();
     sender.loopback_records = true;
-    let permit = sender.reserve().expect("tunnel permit");
+    let permit = sender
+        .reserve(std::net::Ipv4Addr::LOCALHOST.into())
+        .expect("tunnel permit");
     let tunnel = sender.tunnel(front, back, lease, permit);
     assert!(tunnel.download.records);
     assert!(
@@ -259,4 +265,22 @@ fn only_a_loopback_peer_is_reached_over_loopback() {
     assert!(!loopback::reaches_peer_over_loopback(&TcpStream::from(
         unconnected
     )));
+}
+
+#[test]
+fn tunnel_capacity_reserves_room_for_other_destinations_and_guards() {
+    let guard = DestinationGuard::start(DestinationPolicy::DEFAULT).expect("guard");
+    let other_guard = DestinationGuard::start(DestinationPolicy::DEFAULT).expect("second guard");
+    let sender = &guard.tunnels.sender;
+    let first = "192.0.2.1".parse().expect("first IP");
+    let first_mapped = "::ffff:192.0.2.1".parse().expect("mapped first IP");
+    let second = "192.0.2.2".parse().expect("second IP");
+    let third = "192.0.2.3".parse().expect("third IP");
+    let mut first_permits: Vec<_> = (0..64).map(|_| sender.reserve(first).unwrap()).collect();
+    assert!(sender.reserve(first_mapped).is_none());
+    let _second_permits: Vec<_> = (0..64).map(|_| sender.reserve(second).unwrap()).collect();
+    assert!(sender.reserve(third).is_none());
+    assert!(other_guard.tunnels.sender.reserve(first).is_some());
+    drop(first_permits.pop());
+    assert!(sender.reserve(third).is_some());
 }

@@ -168,10 +168,6 @@ pub(super) fn serve(
         dns,
         started,
     } = setup;
-    let Some(permit) = tunnels.reserve() else {
-        respond(&mut client, 503, "guard-capacity");
-        return;
-    };
     let checked = candidates.clone();
     let connector = shared.connector.clone();
     let accounting = shared.clone();
@@ -202,6 +198,10 @@ pub(super) fn serve(
     if !checked.contains(&pinned) || shared.stop.load(Ordering::SeqCst) {
         return;
     }
+    let Some(permit) = tunnels.reserve(pinned.ip()) else {
+        respond(&mut client, 503, "guard-capacity");
+        return;
+    };
     if client.set_nodelay(true).is_err()
         || client
             .write_all(b"HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: connect-udp\r\nCapsule-Protocol: ?1\r\n\r\n")

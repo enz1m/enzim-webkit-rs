@@ -1202,7 +1202,7 @@ fn serve_connection(
     });
 
     if request.tunnel {
-        let Some(permit) = tunnels.reserve() else {
+        let Some(permit) = tunnels.reserve(pinned.ip()) else {
             respond(&mut client, 503, "guard-capacity");
             return;
         };
@@ -1238,7 +1238,7 @@ fn serve_connection(
             upstream,
             client,
             shared,
-            &request.url,
+            (&request.url, pinned.ip()),
             requested_upgrades.as_deref(),
             tunnels,
             lease,
@@ -1332,11 +1332,12 @@ fn relay_screened_response(
     mut upstream: TcpStream,
     mut client: TcpStream,
     shared: &Shared,
-    source_url: &str,
+    source: (&str, std::net::IpAddr),
     requested_upgrades: Option<&[String]>,
     tunnels: &TunnelSender,
     lease: ConnectionLease,
 ) {
+    let (source_url, destination) = source;
     let mut buffered = Vec::new();
     let mut interim = 0usize;
     loop {
@@ -1410,7 +1411,7 @@ fn relay_screened_response(
                 respond(&mut client, 502, "mismatched-upgrade");
                 return;
             }
-            let Some(permit) = tunnels.reserve() else {
+            let Some(permit) = tunnels.reserve(destination) else {
                 respond(&mut client, 503, "guard-capacity");
                 return;
             };

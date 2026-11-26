@@ -1,11 +1,12 @@
 use super::*;
 use rustix::event::{PollFd, PollFlags, Timespec, poll};
+use std::net::IpAddr;
 use std::os::fd::{AsFd, BorrowedFd};
 use std::os::unix::net::UnixStream;
-use std::sync::atomic::AtomicUsize;
 use std::time::Instant;
 
 const MAX_TUNNELS: usize = 128;
+const MAX_TUNNELS_PER_DESTINATION: usize = MAX_TUNNELS / 2;
 const BUFFER_BYTES: usize = 16 * 1024;
 const POLL_INTERVAL: Duration = Duration::from_millis(100);
 
@@ -27,16 +28,37 @@ pub(super) struct TunnelRelay {
 #[derive(Clone)]
 pub(super) struct TunnelSender {
     sender: SyncSender<RelayTunnel>,
-    live: Arc<AtomicUsize>,
+    capacity: Arc<Mutex<Capacity>>,
     wake: Arc<UnixStream>,
     loopback_records: bool,
 }
 
-pub(super) struct Permit(Arc<AtomicUsize>);
+#[derive(Default)]
+struct Capacity {
+    total: usize,
+    destinations: HashMap<IpAddr, usize>,
+}
+
+pub(super) struct Permit {
+    capacity: Arc<Mutex<Capacity>>,
+    destination: IpAddr,
+}
 
 impl Drop for Permit {
     fn drop(&mut self) {
-        self.0.fetch_sub(1, Ordering::Relaxed);
+        let mut capacity = self
+            .capacity
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        capacity.total -= 1;
+        if let std::collections::hash_map::Entry::Occupied(mut entry) =
+            capacity.destinations.entry(self.destination)
+        {
+            *entry.get_mut() -= 1;
+            if *entry.get() == 0 {
+                entry.remove();
+            }
+        }
     }
 }
 
@@ -53,7 +75,7 @@ impl TunnelRelay {
         Ok(Self {
             sender: TunnelSender {
                 sender,
-                live: Arc::new(AtomicUsize::new(0)),
+                capacity: Arc::new(Mutex::new(Capacity::default())),
                 wake: Arc::new(wake),
                 loopback_records,
             },
@@ -81,13 +103,25 @@ impl TunnelSender {
         }
     }
 
-    pub fn reserve(&self) -> Option<Permit> {
-        self.live
-            .try_update(Ordering::Relaxed, Ordering::Relaxed, |live| {
-                (live < MAX_TUNNELS).then_some(live + 1)
-            })
-            .ok()
-            .map(|_| Permit(self.live.clone()))
+    pub fn reserve(&self, address: IpAddr) -> Option<Permit> {
+        let destination = address.to_canonical();
+        let mut capacity = self
+            .capacity
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        if capacity.total == MAX_TUNNELS {
+            return None;
+        }
+        let used = capacity.destinations.entry(destination).or_default();
+        if *used == MAX_TUNNELS_PER_DESTINATION {
+            return None;
+        }
+        *used += 1;
+        capacity.total += 1;
+        Some(Permit {
+            capacity: self.capacity.clone(),
+            destination,
+        })
     }
 
     pub fn relay(

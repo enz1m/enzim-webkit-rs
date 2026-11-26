@@ -179,9 +179,12 @@ fn tunnel_disables_nagle_on_both_relay_endpoints() {
 #[test]
 fn tunnel_capacity_refuses_overflow_and_releases_closed_slots() {
     let origin = IdleOrigin::start();
+    let mut destinations = vec![vec![public_addr(443)]; 64];
+    destinations.extend(vec![vec![SocketAddr::from(([93, 184, 216, 35], 443))]; 64]);
+    destinations.push(vec![SocketAddr::from(([93, 184, 216, 36], 443))]);
     let guard = DestinationGuard::start_with(
         DestinationPolicy::default(),
-        ScriptedResolver::new(vec![vec![public_addr(443)]]),
+        ScriptedResolver::new(destinations),
         RecordingConnector::new(origin.addr),
     )
     .expect("guard");
