@@ -240,6 +240,26 @@ impl ProfileStore {
         previous - self.live.len()
     }
 
+    /// Remove a named profile's data and caches once its last session has retired.
+    ///
+    /// Returns `Ok(false)` while the profile is live so the caller can retry.
+    /// A profile whose directory is already absent is considered removed.
+    ///
+    /// # Errors
+    /// Returns a profile error if the name, owner thread or storage path is invalid,
+    /// or the filesystem refuses removal.
+    pub fn remove_persistent_profile(&mut self, name: &str) -> Result<bool, ProfileError> {
+        super::threading::claim().map_err(ProfileError::WrongThread)?;
+        if self
+            .live
+            .get(&ProfileId::Persistent(name.to_owned()))
+            .is_some_and(|session| session.strong_count() != 0)
+        {
+            return Ok(false);
+        }
+        remove_persistent_directory(&self.root, name)
+    }
+
     fn persistent_under(
         &self,
         relative: &Path,
@@ -272,6 +292,27 @@ impl ProfileStore {
                 ))),
             },
         }
+    }
+}
+
+fn remove_persistent_directory(root: &Path, name: &str) -> Result<bool, ProfileError> {
+    let parent = root.join("persistent");
+    let path = parent.join(encoded_profile_name(name)?);
+    for directory in [root, parent.as_path(), path.as_path()] {
+        match std::fs::symlink_metadata(directory) {
+            Ok(_) => crate::profile_fs::secure_ensure_dir(directory)
+                .map_err(|error| ProfileError::ProfileFs(error.to_string()))?,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(true),
+            Err(error) => return Err(ProfileError::ProfileFs(error.to_string())),
+        }
+    }
+    match std::fs::remove_dir_all(&path) {
+        Ok(()) => Ok(true),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(true),
+        Err(error) => Err(ProfileError::ProfileFs(format!(
+            "{}: {error}",
+            path.display()
+        ))),
     }
 }
 
@@ -1293,5 +1334,47 @@ unsafe fn c_str_to_owned(p: *const c_char) -> String {
     } else {
         // SAFETY: caller guarantees a valid C string.
         unsafe { CStr::from_ptr(p) }.to_string_lossy().into_owned()
+    }
+}
+
+#[cfg(test)]
+mod removal_tests {
+    use super::*;
+
+    #[test]
+    fn deleting_named_storage_removes_the_entire_profile_and_refuses_a_symlinked_parent() {
+        let root =
+            std::env::temp_dir().join(format!("enzui-profile-removal-{}", std::process::id()));
+        std::fs::create_dir(&root).unwrap();
+        let profile = root
+            .join("persistent")
+            .join(encoded_profile_name("deleted").unwrap());
+        let other = root
+            .join("persistent")
+            .join(encoded_profile_name("other").unwrap());
+        std::fs::create_dir_all(profile.join("cache/icondatabase")).unwrap();
+        std::fs::create_dir_all(other.join("data")).unwrap();
+        std::fs::write(
+            profile.join("cache/icondatabase/WebpageIcons.db"),
+            b"synthetic cache",
+        )
+        .unwrap();
+        assert_eq!(remove_persistent_directory(&root, "deleted"), Ok(true));
+        assert!(!profile.exists());
+        assert!(other.exists());
+        assert_eq!(remove_persistent_directory(&root, "deleted"), Ok(true));
+
+        std::fs::rename(root.join("persistent"), root.join("untouched")).unwrap();
+        std::os::unix::fs::symlink(root.join("untouched"), root.join("persistent")).unwrap();
+        assert!(matches!(
+            remove_persistent_directory(&root, "other"),
+            Err(ProfileError::ProfileFs(_))
+        ));
+        assert!(
+            root.join("untouched")
+                .join(other.file_name().unwrap())
+                .exists()
+        );
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

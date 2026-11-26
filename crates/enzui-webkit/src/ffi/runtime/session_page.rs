@@ -794,9 +794,13 @@ impl WebSession {
     /// Positive time windows containing cookies fail before deleting anything:
     /// the native API cannot filter cookies by creation time. Use an all-age
     /// cookie clear or selective deletion instead of claiming a timed cookie clear.
+    /// An all-age full clear also requests removal of the profile's native site icons.
     pub fn clear_website_data(&self, data: WebsiteData, since: Option<Duration>) -> PageRequestId {
         // SAFETY: borrowed from the live view.
         let network_session = unsafe { ffi::webkit_web_view_get_network_session(self.web_view) };
+        if data == WebsiteData::ALL && since.is_none() {
+            super::session_favicon::clear_favicon_database(network_session);
+        }
         self.page_binding()
             .clear_website_data(network_session, data, since)
     }

@@ -68,6 +68,26 @@ fn api() -> Option<&'static Api> {
     })
     .as_ref()
 }
+pub(super) fn clear_favicon_database(network: *mut ffi::WebKitNetworkSession) {
+    let Some(api) = api() else { return };
+    // SAFETY: the runtime lookup uses the public WPE signature, and the
+    // network session is live on its owner thread for the database access.
+    unsafe {
+        let clear = dlsym(ptr::null_mut(), c"webkit_favicon_database_clear".as_ptr());
+        if clear.is_null() {
+            return;
+        }
+        let manager =
+            crate::ffi::page::sys::webkit_network_session_get_website_data_manager(network);
+        let database = (api.database)(manager.cast());
+        if !database.is_null() {
+            let clear =
+                std::mem::transmute::<*mut c_void, unsafe extern "C" fn(*mut c_void)>(clear);
+            clear(database);
+        }
+    }
+}
+
 fn task_error(error: NativeTaskError) -> FaviconError {
     match error {
         NativeTaskError::Cancelled => FaviconError::Cancelled,
