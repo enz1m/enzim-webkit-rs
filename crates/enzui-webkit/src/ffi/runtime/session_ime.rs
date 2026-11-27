@@ -71,33 +71,18 @@ impl WebSession {
     ///
     /// WPEPlatform has no `wpe_view_set_scale`; the value follows the view's
     /// toplevel/screen scale. The headless platform exposes no screen so this
-    /// defaults to 1, but a non-1 value is reachable through the toplevel (see
-    /// [`Self::force_output_scale`]) - which is how the coordinate-space gate
-    /// proves that the caret rectangle does *not* carry this scale.
+    /// defaults to 1 until the embedding window supplies its scale.
     #[must_use]
     pub fn view_scale(&self) -> f64 {
         // SAFETY: live WPEView*.
         unsafe { ffi::wpe_view_get_scale(self.wpe_view) }
     }
 
-    /// Test-only: force an output scale on the view's toplevel, returning
-    /// the resulting [`Self::view_scale`].
+    /// Set the headless view's density in device pixels per logical pixel.
     ///
-    /// WPE documents `wpe_toplevel_scale_changed` as an entry point that
-    /// must only be called by `WPEToplevel` derived classes in platform
-    /// implementations. This doc-hidden lever exists solely for the native
-    /// headless coordinate-space gate: that platform exposes no scaled screen,
-    /// so the test must impersonate the backend event to reach
-    /// `wpe_view_get_scale() != 1`. Product/application code must never call it.
-    /// It changes the genuine `WPEView:scale`, unlike [`Self::set_page_zoom`]
-    /// which changes layout.
-    ///
-    /// Returns `None` for a non-finite/non-positive scale or if the view has no
-    /// toplevel yet. Refusing invalid values in safe Rust keeps them out of the
-    /// platform-only C entry point.
-    #[doc(hidden)]
-    pub fn force_output_scale(&self, scale: f64) -> Option<f64> {
-        if !scale.is_finite() || scale <= 0.0 {
+    /// Returns the effective scale, or `None` for an invalid scale or a missing toplevel.
+    pub fn set_device_scale(&self, scale: f64) -> Option<f64> {
+        if !scale.is_finite() || scale < f64::from(f32::EPSILON) || scale > f64::from(f32::MAX) {
             return None;
         }
         // SAFETY: live WPEView*; `wpe_view_get_toplevel` returns a borrowed
@@ -106,9 +91,33 @@ impl WebSession {
         if toplevel.is_null() {
             return None;
         }
-        // SAFETY: `toplevel` is a live, borrowed WPEToplevel*.
+        if let Some(presentation) = &self.gpu_presentation {
+            presentation.record_viewport(self.viewport_at_scale(self.view_scale() as f32));
+            presentation.record_viewport(self.viewport_at_scale(scale as f32));
+        }
+        // SAFETY: the headless toplevel is live and its output is managed by the host.
         unsafe { ffi::wpe_toplevel_scale_changed(toplevel, scale) };
         Some(self.view_scale())
+    }
+
+    /// Set the headless scale for native input contract tests.
+    #[doc(hidden)]
+    pub fn force_output_scale(&self, scale: f64) -> Option<f64> {
+        self.set_device_scale(scale)
+    }
+
+    pub(in crate::ffi) fn viewport_at_scale(&self, scale: f32) -> Option<crate::ViewportSize> {
+        // SAFETY: the live view retains the borrowed toplevel.
+        let toplevel = unsafe { ffi::wpe_view_get_toplevel(self.wpe_view) };
+        if toplevel.is_null() {
+            return None;
+        }
+        let (mut width, mut height) = (0, 0);
+        // SAFETY: the toplevel and both out-parameters are live for the read.
+        unsafe { ffi::wpe_toplevel_get_size(toplevel, &mut width, &mut height) };
+        crate::ViewportSize::from_logical(width as f32, height as f32)
+            .ok()
+            .map(|size| size.with_device_scale(scale))
     }
 
     /// Set the page's zoom level (logical view pixels per CSS pixel).

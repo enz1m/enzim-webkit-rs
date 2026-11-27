@@ -95,10 +95,69 @@ fn next_content_stream() -> u64 {
         .unwrap_or(0)
 }
 
+#[derive(Default)]
+struct ViewportHistory {
+    pending: std::collections::VecDeque<crate::ViewportSize>,
+    dropped_scale: Option<f32>,
+    lost_geometry: bool,
+}
+
+impl ViewportHistory {
+    fn record(&mut self, viewport: crate::ViewportSize) {
+        if self.pending.back() == Some(&viewport) {
+            return;
+        }
+        if self.pending.len() == 16 {
+            let dropped = self
+                .pending
+                .pop_front()
+                .and_then(|size| size.device_scale());
+            self.lost_geometry |= self.dropped_scale.is_some() && self.dropped_scale != dropped;
+            self.dropped_scale = dropped;
+        }
+        self.pending.push_back(viewport);
+    }
+
+    fn pixel_scale(&mut self, extent: (u32, u32)) -> Option<f32> {
+        let Some(first) = self.pending.front().and_then(|size| size.device_scale()) else {
+            return Some(1.0);
+        };
+        let mut matching = self
+            .pending
+            .iter()
+            .enumerate()
+            .filter(|(_, size)| size.buffer_extent() == extent);
+        let Some((index, viewport)) = matching.next() else {
+            return (!self.lost_geometry
+                && self.dropped_scale.is_none_or(|scale| scale == first)
+                && self
+                    .pending
+                    .iter()
+                    .all(|size| size.device_scale() == Some(first)))
+            .then_some(first);
+        };
+        let scale = viewport.device_scale();
+        // WPE supplies only physical dimensions. If two densities can produce
+        // this extent, the host must use a fresh snapshot instead of relabeling it.
+        if self.lost_geometry
+            || self
+                .dropped_scale
+                .is_some_and(|dropped| Some(dropped) != scale)
+            || matching.any(|(_, size)| size.device_scale() != scale)
+        {
+            return None;
+        }
+        self.pending.drain(..index);
+        self.dropped_scale = None;
+        scale
+    }
+}
+
 struct State {
     content_stream: Cell<u64>,
     content_serial: Cell<u64>,
-    content_extent: Cell<(u32, u32)>,
+    content_geometry: Cell<((u32, u32), Option<f32>)>,
+    viewports: RefCell<ViewportHistory>,
     active: Cell<usize>,
     deferred: RefCell<Option<Weak<Lease>>>,
     pending: RefCell<Option<Rc<Lease>>>,
@@ -106,6 +165,7 @@ struct State {
 }
 
 struct Lease {
+    pixel_scale: Option<f32>,
     content: FrameContentInfo,
     view: *mut wpe::WPEView,
     buffer: *mut wpe::WPEBuffer,
@@ -195,7 +255,9 @@ unsafe extern "C" fn render(
                 1
             }
         };
-        if state.content_extent.replace(extent) != extent {
+        let pixel_scale = state.viewports.borrow_mut().pixel_scale(extent);
+        let geometry = (extent, pixel_scale);
+        if state.content_geometry.replace(geometry) != geometry {
             region = FrameDamage::Full;
         }
         state.content_serial.set(serial);
@@ -204,6 +266,7 @@ unsafe extern "C" fn render(
             content.accumulate(discarded.content);
         }
         let pending = Rc::new(Lease {
+            pixel_scale,
             content,
             view,
             buffer,
@@ -244,7 +307,8 @@ impl PresentationBinding {
         let state = Rc::new(State {
             content_stream: Cell::new(next_content_stream()),
             content_serial: Cell::new(0),
-            content_extent: Cell::new((0, 0)),
+            content_geometry: Cell::new(((0, 0), Some(1.0))),
+            viewports: RefCell::default(),
             active: Cell::new(0),
             deferred: RefCell::new(None),
             pending: RefCell::new(None),
@@ -260,6 +324,12 @@ impl PresentationBinding {
 }
 
 impl PresentationBinding {
+    pub(super) fn record_viewport(&self, viewport: Option<crate::ViewportSize>) {
+        if let Some(viewport) = viewport {
+            self.state.viewports.borrow_mut().record(viewport);
+        }
+    }
+
     pub(super) fn set_view(&self, view: ViewId) {
         self.state.view_id.set(Some(view));
         self.state.content_stream.set(next_content_stream());
@@ -291,6 +361,8 @@ pub enum GpuFrameError {
     StaleGeneration,
     /// The compositor supplied a buffer without DMA-BUF planes.
     UnsupportedBuffer,
+    /// The buffer dimensions could not identify a unique producer density.
+    AmbiguousViewport,
     /// Native dimensions, planes, or descriptors are invalid.
     InvalidBuffer,
     /// Duplicating a native descriptor failed.
@@ -308,6 +380,9 @@ impl core::fmt::Display for GpuFrameError {
             Self::Disabled => f.write_str("GPU presentation is disabled"),
             Self::StaleGeneration => f.write_str("GPU frame belongs to an earlier view generation"),
             Self::UnsupportedBuffer => f.write_str("the compositor did not supply a DMA-BUF frame"),
+            Self::AmbiguousViewport => {
+                f.write_str("the compositor frame has an ambiguous pixel density")
+            }
             Self::InvalidBuffer => f.write_str("invalid DMA-BUF dimensions or plane descriptor"),
             Self::DuplicateDescriptor(error) => {
                 write!(f, "DMA-BUF descriptor duplication failed: {error}")
@@ -393,6 +468,7 @@ impl Drop for GpuBufferMetadata {
 /// Retain the completion token through final GPU sampling. Metadata alone keeps
 /// descriptors open but does not prevent producer writes to a reused allocation.
 pub struct SharedGpuFrame {
+    pixel_scale: f32,
     content: FrameContentInfo,
     view: ViewId,
     buffer: Arc<GpuBufferMetadata>,
@@ -400,6 +476,11 @@ pub struct SharedGpuFrame {
 }
 
 impl SharedGpuFrame {
+    /// The frame's producer density in buffer pixels per logical pixel.
+    pub fn pixel_scale(&self) -> f32 {
+        self.pixel_scale
+    }
+
     /// Content serial and bounded physical-pixel damage, independent of allocation reuse.
     pub fn content_info(&self) -> FrameContentInfo {
         self.content
@@ -452,6 +533,11 @@ pub struct DmaBufFrame {
 }
 
 impl DmaBufFrame {
+    /// The frame's producer density in buffer pixels per logical pixel.
+    pub fn pixel_scale(&self) -> f32 {
+        self.lease.pixel_scale.unwrap_or(1.0)
+    }
+
     /// Content serial and bounded physical-pixel damage.
     pub fn content_info(&self) -> FrameContentInfo {
         self.lease.content
@@ -781,6 +867,7 @@ extern "C" fn destroy_completion_hub(data: *mut c_void) {
 /// Use the completion token to retain the native producer lease through GPU
 /// sampling. Plane descriptors alone do not keep a producer from reusing memory.
 pub struct ThreadSafeGpuFrame {
+    pixel_scale: f32,
     content: FrameContentInfo,
     buffer_id: u64,
     view: ViewId,
@@ -792,6 +879,11 @@ pub struct ThreadSafeGpuFrame {
 }
 
 impl ThreadSafeGpuFrame {
+    /// The frame's producer density in buffer pixels per logical pixel.
+    pub fn pixel_scale(&self) -> f32 {
+        self.pixel_scale
+    }
+
     /// Content serial and bounded physical-pixel damage.
     pub fn content_info(&self) -> FrameContentInfo {
         self.content
@@ -834,8 +926,10 @@ impl DmaBufFrame {
     pub fn into_thread_safe(self) -> Result<ThreadSafeGpuFrame, GpuFrameError> {
         let size = self.size();
         let content = self.content_info();
+        let pixel_scale = self.pixel_scale();
         let completion = export_completion(self.lease, self._state)?;
         Ok(ThreadSafeGpuFrame {
+            pixel_scale,
             content,
             buffer_id: self.buffer_id,
             view: self.view,
@@ -1009,8 +1103,10 @@ impl WebSession {
     pub fn enable_gpu_presentation(&mut self) {
         if self.gpu_presentation.is_none() {
             // SAFETY: this session owns the view and cannot leave its initialization thread.
-            self.gpu_presentation =
-                Some(unsafe { PresentationBinding::new(self.wpe_view, self.bound_view()) });
+            let presentation =
+                unsafe { PresentationBinding::new(self.wpe_view, self.bound_view()) };
+            presentation.record_viewport(self.viewport_at_scale(self.view_scale() as f32));
+            self.gpu_presentation = Some(presentation);
         }
     }
 
@@ -1119,8 +1215,10 @@ impl WebSession {
             Arc::clone(unsafe { &*cached.cast::<Arc<GpuBufferMetadata>>() })
         };
         let content = lease.content;
+        let pixel_scale = lease.pixel_scale.ok_or(GpuFrameError::AmbiguousViewport)?;
         let completion = export_completion(lease, state)?;
         Ok(Some(SharedGpuFrame {
+            pixel_scale,
             content,
             view,
             buffer,
@@ -1162,6 +1260,9 @@ impl WebSession {
         if lease.view_id != Some(view) {
             return Err(GpuFrameError::StaleGeneration);
         }
+        if lease.pixel_scale.is_none() {
+            return Err(GpuFrameError::AmbiguousViewport);
+        }
         // SAFETY: the lease owns a live GObject-derived buffer; checked before DMA-BUF-specific calls.
         if unsafe {
             wpe::g_type_check_instance_is_a(lease.buffer.cast(), wpe_buffer_dma_buf_get_type())
@@ -1170,5 +1271,31 @@ impl WebSession {
             return Err(GpuFrameError::UnsupportedBuffer);
         }
         Ok(Some((lease, Rc::clone(&binding.state))))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ViewportHistory;
+    use crate::ViewportSize;
+
+    #[test]
+    fn producer_density_follows_buffer_extent_across_resize() {
+        let viewport = |width, height, scale| {
+            ViewportSize::from_logical(width, height)
+                .expect("valid size")
+                .with_device_scale(scale)
+        };
+        let mut history = ViewportHistory::default();
+        history.record(viewport(701.0, 401.0, 1.5));
+        assert_eq!(history.pixel_scale((1051, 601)), Some(1.5));
+        history.record(viewport(527.0, 303.0, 1.5));
+        history.record(viewport(527.0, 303.0, 2.0));
+        assert_eq!(history.pixel_scale((1051, 601)), Some(1.5));
+        assert_eq!(history.pixel_scale((790, 454)), Some(1.5));
+        assert_eq!(history.pixel_scale((1054, 606)), Some(2.0));
+
+        history.record(viewport(1054.0, 606.0, 1.0));
+        assert_eq!(history.pixel_scale((1054, 606)), None);
     }
 }

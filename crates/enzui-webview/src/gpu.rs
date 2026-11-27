@@ -42,6 +42,7 @@ impl GpuFrame {
         let view = frame.view();
         let content = frame.content_info();
         let (width, height) = frame.size();
+        let pixel_scale = frame.pixel_scale();
         let format = frame.format();
         let modifier = frame.modifier();
         let (planes, completion) = frame.into_parts();
@@ -58,7 +59,8 @@ impl GpuFrame {
                 .collect(),
         };
         let discard = completion.clone();
-        let frame = ExternalFrame::new(buffer, Lease::new(move || drop(completion)));
+        let frame =
+            ExternalFrame::new_scaled(buffer, Lease::new(move || drop(completion)), pixel_scale);
         Self {
             view,
             content,
@@ -81,6 +83,7 @@ impl GpuFrame {
     ) -> Self {
         let view = frame.view();
         let content = frame.content_info();
+        let pixel_scale = frame.pixel_scale();
         let (metadata, completion) = frame.into_parts();
         let (width, height) = metadata.size();
         let buffer = DmaBuf {
@@ -101,9 +104,10 @@ impl GpuFrame {
         };
         let discard = completion.clone();
         let encoded = completion.clone();
-        let frame = ExternalFrame::with_on_encoded(
+        let frame = ExternalFrame::with_on_encoded_scaled(
             buffer,
             Lease::new(move || drop(completion)),
+            pixel_scale,
             move || {
                 #[cfg(feature = "diagnostics")]
                 SHARED_NATIVE_ENCODINGS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -140,6 +144,11 @@ impl GpuFrame {
     /// Physical pixel dimensions of the native compositor buffer.
     pub fn size(&self) -> (u32, u32) {
         (self.frame.buffer().width, self.frame.buffer().height)
+    }
+
+    /// The frame's producer density in buffer pixels per logical pixel.
+    pub fn pixel_scale(&self) -> f32 {
+        self.frame.pixel_scale()
     }
 
     /// Current import result, including an explicit software-renderer refusal.

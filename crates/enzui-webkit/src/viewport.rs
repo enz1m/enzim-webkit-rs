@@ -11,6 +11,7 @@
 pub struct ViewportSize {
     width: i32,
     height: i32,
+    device_scale_bits: u32,
 }
 
 impl ViewportSize {
@@ -38,7 +39,39 @@ impl ViewportSize {
         Ok(Self {
             width: dimension(width, "width")?,
             height: dimension(height, "height")?,
+            device_scale_bits: 0,
         })
+    }
+
+    /// Use this density for rendering while keeping the layout size logical.
+    ///
+    /// An invalid scale leaves the previous scale in place.
+    #[must_use]
+    pub fn with_device_scale(mut self, scale: f32) -> Self {
+        if scale.is_finite() && scale >= f32::EPSILON {
+            self.device_scale_bits = scale.to_bits();
+        }
+        self
+    }
+
+    /// Requested device pixels per logical pixel, if the host supplied a scale.
+    #[must_use]
+    pub const fn device_scale(self) -> Option<f32> {
+        if self.device_scale_bits == 0 {
+            None
+        } else {
+            Some(f32::from_bits(self.device_scale_bits))
+        }
+    }
+
+    #[cfg(feature = "wpe")]
+    pub(crate) fn buffer_extent(self) -> (u32, u32) {
+        let scale = self.device_scale().unwrap_or(1.0);
+        // WebKit's IntSize::scale truncates each axis after a float multiplication.
+        (
+            (self.width as f32 * scale) as u32,
+            (self.height as f32 * scale) as u32,
+        )
     }
 
     /// Width in integer logical pixels.

@@ -894,7 +894,7 @@ dependencies = [
 [[package]]
 name = "enzui-clipboard"
 version = "0.3.0-alpha.1"
-source = "git+https://github.com/enz1m/enzui.git?rev=4f951251c8f31a649dd862e274f81260690a9b98#4f951251c8f31a649dd862e274f81260690a9b98"
+source = "git+https://github.com/enz1m/enzui.git?rev=c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e#c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e"
 dependencies = [
  "enzui-core",
  "enzui-security",
@@ -908,7 +908,7 @@ dependencies = [
 [[package]]
 name = "enzui-clipboard-runtime"
 version = "0.3.0-alpha.1"
-source = "git+https://github.com/enz1m/enzui.git?rev=4f951251c8f31a649dd862e274f81260690a9b98#4f951251c8f31a649dd862e274f81260690a9b98"
+source = "git+https://github.com/enz1m/enzui.git?rev=c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e#c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e"
 dependencies = [
  "enzui-clipboard",
  "enzui-core",
@@ -924,7 +924,7 @@ dependencies = [
 [[package]]
 name = "enzui-core"
 version = "0.3.0-alpha.1"
-source = "git+https://github.com/enz1m/enzui.git?rev=4f951251c8f31a649dd862e274f81260690a9b98#4f951251c8f31a649dd862e274f81260690a9b98"
+source = "git+https://github.com/enz1m/enzui.git?rev=c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e#c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e"
 dependencies = [
  "accesskit",
  "enzui-icons",
@@ -967,7 +967,7 @@ dependencies = [
 [[package]]
 name = "enzui-external-image"
 version = "0.3.0-alpha.1"
-source = "git+https://github.com/enz1m/enzui.git?rev=4f951251c8f31a649dd862e274f81260690a9b98#4f951251c8f31a649dd862e274f81260690a9b98"
+source = "git+https://github.com/enz1m/enzui.git?rev=c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e#c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e"
 dependencies = [
  "ash",
  "bytemuck",
@@ -980,17 +980,17 @@ dependencies = [
 [[package]]
 name = "enzui-icons"
 version = "0.3.0-alpha.1"
-source = "git+https://github.com/enz1m/enzui.git?rev=4f951251c8f31a649dd862e274f81260690a9b98#4f951251c8f31a649dd862e274f81260690a9b98"
+source = "git+https://github.com/enz1m/enzui.git?rev=c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e#c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e"
 
 [[package]]
 name = "enzui-parent-lease"
 version = "0.3.0-alpha.1"
-source = "git+https://github.com/enz1m/enzui.git?rev=4f951251c8f31a649dd862e274f81260690a9b98#4f951251c8f31a649dd862e274f81260690a9b98"
+source = "git+https://github.com/enz1m/enzui.git?rev=c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e#c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e"
 
 [[package]]
 name = "enzui-security"
 version = "0.3.0-alpha.1"
-source = "git+https://github.com/enz1m/enzui.git?rev=4f951251c8f31a649dd862e274f81260690a9b98#4f951251c8f31a649dd862e274f81260690a9b98"
+source = "git+https://github.com/enz1m/enzui.git?rev=c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e#c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e"
 dependencies = [
  "rustix",
 ]
@@ -998,7 +998,7 @@ dependencies = [
 [[package]]
 name = "enzui-services"
 version = "0.3.0-alpha.1"
-source = "git+https://github.com/enz1m/enzui.git?rev=4f951251c8f31a649dd862e274f81260690a9b98#4f951251c8f31a649dd862e274f81260690a9b98"
+source = "git+https://github.com/enz1m/enzui.git?rev=c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e#c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e"
 dependencies = [
  "cc",
  "enzui-core",
@@ -1014,7 +1014,7 @@ dependencies = [
 [[package]]
 name = "enzui-test-support"
 version = "0.3.0-alpha.1"
-source = "git+https://github.com/enz1m/enzui.git?rev=4f951251c8f31a649dd862e274f81260690a9b98#4f951251c8f31a649dd862e274f81260690a9b98"
+source = "git+https://github.com/enz1m/enzui.git?rev=c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e#c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e"
 dependencies = [
  "iced_core",
 ]
@@ -1022,7 +1022,7 @@ dependencies = [
 [[package]]
 name = "enzui-theme"
 version = "0.3.0-alpha.1"
-source = "git+https://github.com/enz1m/enzui.git?rev=4f951251c8f31a649dd862e274f81260690a9b98#4f951251c8f31a649dd862e274f81260690a9b98"
+source = "git+https://github.com/enz1m/enzui.git?rev=c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e#c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e"
 dependencies = [
  "iced_core",
  "iced_futures",
@@ -1032,7 +1032,7 @@ dependencies = [
 [[package]]
 name = "enzui-wayland"
 version = "0.3.0-alpha.1"
-source = "git+https://github.com/enz1m/enzui.git?rev=4f951251c8f31a649dd862e274f81260690a9b98#4f951251c8f31a649dd862e274f81260690a9b98"
+source = "git+https://github.com/enz1m/enzui.git?rev=c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e#c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e"
 dependencies = [
  "enzui-core",
  "enzui-parent-lease",
@@ -1075,7 +1075,7 @@ dependencies = [
 [[package]]
 name = "enzui-widgets"
 version = "0.3.0-alpha.1"
-source = "git+https://github.com/enz1m/enzui.git?rev=4f951251c8f31a649dd862e274f81260690a9b98#4f951251c8f31a649dd862e274f81260690a9b98"
+source = "git+https://github.com/enz1m/enzui.git?rev=c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e#c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e"
 dependencies = [
  "bytemuck",
  "enzui-clipboard",
@@ -1649,7 +1649,7 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 [[package]]
 name = "iced"
 version = "0.15.0-dev"
-source = "git+https://github.com/enz1m/enzim-iced.git?rev=838066d2e7373e87cfb42e62cca5a1dc9625b5f9#838066d2e7373e87cfb42e62cca5a1dc9625b5f9"
+source = "git+https://github.com/enz1m/enzim-iced.git?rev=1f49edd6501983d3211b9222e99159904028760d#1f49edd6501983d3211b9222e99159904028760d"
 dependencies = [
  "iced_core",
  "iced_debug",
@@ -1665,7 +1665,7 @@ dependencies = [
 [[package]]
 name = "iced_core"
 version = "0.15.0-dev"
-source = "git+https://github.com/enz1m/enzim-iced.git?rev=838066d2e7373e87cfb42e62cca5a1dc9625b5f9#838066d2e7373e87cfb42e62cca5a1dc9625b5f9"
+source = "git+https://github.com/enz1m/enzim-iced.git?rev=1f49edd6501983d3211b9222e99159904028760d#1f49edd6501983d3211b9222e99159904028760d"
 dependencies = [
  "bitflags 2.13.2",
  "bytes",
@@ -1684,7 +1684,7 @@ dependencies = [
 [[package]]
 name = "iced_debug"
 version = "0.15.0-dev"
-source = "git+https://github.com/enz1m/enzim-iced.git?rev=838066d2e7373e87cfb42e62cca5a1dc9625b5f9#838066d2e7373e87cfb42e62cca5a1dc9625b5f9"
+source = "git+https://github.com/enz1m/enzim-iced.git?rev=1f49edd6501983d3211b9222e99159904028760d#1f49edd6501983d3211b9222e99159904028760d"
 dependencies = [
  "iced_core",
  "iced_futures",
@@ -1694,7 +1694,7 @@ dependencies = [
 [[package]]
 name = "iced_futures"
 version = "0.15.0-dev"
-source = "git+https://github.com/enz1m/enzim-iced.git?rev=838066d2e7373e87cfb42e62cca5a1dc9625b5f9#838066d2e7373e87cfb42e62cca5a1dc9625b5f9"
+source = "git+https://github.com/enz1m/enzim-iced.git?rev=1f49edd6501983d3211b9222e99159904028760d#1f49edd6501983d3211b9222e99159904028760d"
 dependencies = [
  "futures",
  "iced_core",
@@ -1708,7 +1708,7 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.15.0-dev"
-source = "git+https://github.com/enz1m/enzim-iced.git?rev=838066d2e7373e87cfb42e62cca5a1dc9625b5f9#838066d2e7373e87cfb42e62cca5a1dc9625b5f9"
+source = "git+https://github.com/enz1m/enzim-iced.git?rev=1f49edd6501983d3211b9222e99159904028760d#1f49edd6501983d3211b9222e99159904028760d"
 dependencies = [
  "bitflags 2.13.2",
  "bytemuck",
@@ -1729,7 +1729,7 @@ dependencies = [
 [[package]]
 name = "iced_program"
 version = "0.15.0-dev"
-source = "git+https://github.com/enz1m/enzim-iced.git?rev=838066d2e7373e87cfb42e62cca5a1dc9625b5f9#838066d2e7373e87cfb42e62cca5a1dc9625b5f9"
+source = "git+https://github.com/enz1m/enzim-iced.git?rev=1f49edd6501983d3211b9222e99159904028760d#1f49edd6501983d3211b9222e99159904028760d"
 dependencies = [
  "iced_graphics",
  "iced_runtime",
@@ -1738,7 +1738,7 @@ dependencies = [
 [[package]]
 name = "iced_renderer"
 version = "0.15.0-dev"
-source = "git+https://github.com/enz1m/enzim-iced.git?rev=838066d2e7373e87cfb42e62cca5a1dc9625b5f9#838066d2e7373e87cfb42e62cca5a1dc9625b5f9"
+source = "git+https://github.com/enz1m/enzim-iced.git?rev=1f49edd6501983d3211b9222e99159904028760d#1f49edd6501983d3211b9222e99159904028760d"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
@@ -1750,7 +1750,7 @@ dependencies = [
 [[package]]
 name = "iced_runtime"
 version = "0.15.0-dev"
-source = "git+https://github.com/enz1m/enzim-iced.git?rev=838066d2e7373e87cfb42e62cca5a1dc9625b5f9#838066d2e7373e87cfb42e62cca5a1dc9625b5f9"
+source = "git+https://github.com/enz1m/enzim-iced.git?rev=1f49edd6501983d3211b9222e99159904028760d#1f49edd6501983d3211b9222e99159904028760d"
 dependencies = [
  "bytes",
  "iced_core",
@@ -1762,7 +1762,7 @@ dependencies = [
 [[package]]
 name = "iced_selector"
 version = "0.15.0-dev"
-source = "git+https://github.com/enz1m/enzim-iced.git?rev=838066d2e7373e87cfb42e62cca5a1dc9625b5f9#838066d2e7373e87cfb42e62cca5a1dc9625b5f9"
+source = "git+https://github.com/enz1m/enzim-iced.git?rev=1f49edd6501983d3211b9222e99159904028760d#1f49edd6501983d3211b9222e99159904028760d"
 dependencies = [
  "iced_core",
 ]
@@ -1770,7 +1770,7 @@ dependencies = [
 [[package]]
 name = "iced_test"
 version = "0.15.0-dev"
-source = "git+https://github.com/enz1m/enzim-iced.git?rev=838066d2e7373e87cfb42e62cca5a1dc9625b5f9#838066d2e7373e87cfb42e62cca5a1dc9625b5f9"
+source = "git+https://github.com/enz1m/enzim-iced.git?rev=1f49edd6501983d3211b9222e99159904028760d#1f49edd6501983d3211b9222e99159904028760d"
 dependencies = [
  "iced_futures",
  "iced_program",
@@ -1786,7 +1786,7 @@ dependencies = [
 [[package]]
 name = "iced_tiny_skia"
 version = "0.15.0-dev"
-source = "git+https://github.com/enz1m/enzim-iced.git?rev=838066d2e7373e87cfb42e62cca5a1dc9625b5f9#838066d2e7373e87cfb42e62cca5a1dc9625b5f9"
+source = "git+https://github.com/enz1m/enzim-iced.git?rev=1f49edd6501983d3211b9222e99159904028760d#1f49edd6501983d3211b9222e99159904028760d"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -1803,7 +1803,7 @@ dependencies = [
 [[package]]
 name = "iced_wgpu"
 version = "0.15.0-dev"
-source = "git+https://github.com/enz1m/enzim-iced.git?rev=838066d2e7373e87cfb42e62cca5a1dc9625b5f9#838066d2e7373e87cfb42e62cca5a1dc9625b5f9"
+source = "git+https://github.com/enz1m/enzim-iced.git?rev=1f49edd6501983d3211b9222e99159904028760d#1f49edd6501983d3211b9222e99159904028760d"
 dependencies = [
  "ash",
  "bitflags 2.13.2",
@@ -1824,7 +1824,7 @@ dependencies = [
 [[package]]
 name = "iced_widget"
 version = "0.15.0-dev"
-source = "git+https://github.com/enz1m/enzim-iced.git?rev=838066d2e7373e87cfb42e62cca5a1dc9625b5f9#838066d2e7373e87cfb42e62cca5a1dc9625b5f9"
+source = "git+https://github.com/enz1m/enzim-iced.git?rev=1f49edd6501983d3211b9222e99159904028760d#1f49edd6501983d3211b9222e99159904028760d"
 dependencies = [
  "iced_renderer",
  "iced_runtime",
@@ -1840,7 +1840,7 @@ dependencies = [
 [[package]]
 name = "iced_winit"
 version = "0.15.0-dev"
-source = "git+https://github.com/enz1m/enzim-iced.git?rev=838066d2e7373e87cfb42e62cca5a1dc9625b5f9#838066d2e7373e87cfb42e62cca5a1dc9625b5f9"
+source = "git+https://github.com/enz1m/enzim-iced.git?rev=1f49edd6501983d3211b9222e99159904028760d#1f49edd6501983d3211b9222e99159904028760d"
 dependencies = [
  "accesskit",
  "accesskit_winit",
@@ -3898,7 +3898,7 @@ dependencies = [
 [[package]]
 name = "softbuffer"
 version = "0.4.8"
-source = "git+https://github.com/enz1m/enzim-iced.git?rev=838066d2e7373e87cfb42e62cca5a1dc9625b5f9#838066d2e7373e87cfb42e62cca5a1dc9625b5f9"
+source = "git+https://github.com/enz1m/enzim-iced.git?rev=1f49edd6501983d3211b9222e99159904028760d#1f49edd6501983d3211b9222e99159904028760d"
 dependencies = [
  "as-raw-xcb-connection",
  "bytemuck",

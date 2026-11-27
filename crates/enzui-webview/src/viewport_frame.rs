@@ -4,11 +4,17 @@ use iced::advanced::{
 };
 use iced::{Element, Length, Rectangle, Size, mouse};
 
-pub(super) struct ViewportFrame(image::Handle);
+pub(super) struct ViewportFrame {
+    handle: image::Handle,
+    pixel_scale: f32,
+}
 
 impl ViewportFrame {
-    pub(super) fn new(handle: image::Handle) -> Self {
-        Self(handle)
+    pub(super) fn new(handle: image::Handle, pixel_scale: f32) -> Self {
+        Self {
+            handle,
+            pixel_scale,
+        }
     }
 }
 
@@ -36,10 +42,10 @@ where
         let Some(clip) = bounds.intersection(viewport) else {
             return;
         };
-        let size = renderer.measure_image(&self.0).unwrap_or_default();
+        let size = renderer.measure_image(&self.handle).unwrap_or_default();
         renderer.draw_image(
             image::Image {
-                handle: self.0.clone(),
+                handle: self.handle.clone(),
                 filter_method: image::FilterMethod::Linear,
                 rotation: iced::Radians(0.0),
                 border_radius: iced::border::Radius::default(),
@@ -47,7 +53,10 @@ where
             },
             Rectangle::new(
                 bounds.position(),
-                Size::new(size.width as f32, size.height as f32),
+                Size::new(
+                    size.width as f32 / self.pixel_scale,
+                    size.height as f32 / self.pixel_scale,
+                ),
             ),
             clip,
         );

@@ -57,6 +57,7 @@ pub struct WebViewSeam<'a, Message, Theme = iced::Theme, Renderer = iced::Render
     on_viewport_resize: Option<Box<dyn Fn(ViewId, enzui_webkit::ViewportSize) -> Message + 'a>>,
     input_visible: bool,
     resize_visible: bool,
+    viewport_scale: Option<f32>,
     scale_factor: f32,
 }
 
@@ -354,6 +355,7 @@ impl<'a, Message, Theme, Renderer> WebViewSeam<'a, Message, Theme, Renderer> {
             on_viewport_resize: None,
             input_visible: false,
             resize_visible: false,
+            viewport_scale: None,
             scale_factor: 1.0,
         }
     }
@@ -403,14 +405,16 @@ impl<'a, Message, Theme, Renderer> WebViewSeam<'a, Message, Theme, Renderer> {
     }
 
     /// Publish a generation-tagged viewport size on redraw only when its
-    /// checked integer logical dimensions changed.
+    /// checked logical dimensions or requested output scale changed.
     #[must_use]
     pub fn on_viewport_resize(
         mut self,
         visible: bool,
+        scale: Option<f32>,
         f: impl Fn(ViewId, enzui_webkit::ViewportSize) -> Message + 'a,
     ) -> Self {
         self.resize_visible = visible;
+        self.viewport_scale = scale;
         self.on_viewport_resize = Some(Box::new(f));
         self
     }
@@ -759,10 +763,14 @@ where
         ) && self.resize_visible
             && let Some(handler) = &self.on_viewport_resize
             && let Ok(size) = enzui_webkit::ViewportSize::from_logical(bounds.width, bounds.height)
-            && state.last_viewport_size != Some(size)
         {
-            state.last_viewport_size = Some(size);
-            shell.publish(handler(self.view, size));
+            let size = self
+                .viewport_scale
+                .map_or(size, |scale| size.with_device_scale(scale));
+            if state.last_viewport_size != Some(size) {
+                state.last_viewport_size = Some(size);
+                shell.publish(handler(self.view, size));
+            }
         }
 
         // Operations and a preceding diff cannot publish directly. Flush their

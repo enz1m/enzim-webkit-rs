@@ -1014,15 +1014,9 @@ impl WebSession {
         self.bound_view
     }
 
-    /// Forward a live widget viewport size to this view's WPE toplevel.
+    /// Apply a live viewport's logical size and optional device scale to WPE.
     ///
-    /// `size` is already a positive, `gint`-representable integer logical size
-    /// because it can only be built by
-    /// [`ViewportSize::from_logical`](crate::viewport::ViewportSize::from_logical).
-    /// The request must name this session's exact live [`ViewId`](crate::web::ViewId); a stale
-    /// resize queued before crash recovery cannot affect its replacement.
-    /// Repeated reports of the same integer size are suppressed before the FFI
-    /// call, while the same size under a new generation is forwarded again.
+    /// Repeated requests for the same geometry and generation are suppressed.
     ///
     /// # Errors
     ///
@@ -1044,7 +1038,9 @@ impl WebSession {
         if !router.accepts(view) {
             return Err(ViewportResizeError::ViewNotLive { view });
         }
-        if self.last_viewport_request == Some((view, size)) {
+        let scale = self.view_scale();
+        let requested_scale = size.device_scale().map_or(scale, f64::from);
+        if self.last_viewport_request == Some((view, size)) && scale == requested_scale {
             return Ok(ViewportResize::Unchanged);
         }
 
@@ -1054,34 +1050,31 @@ impl WebSession {
         if toplevel.is_null() {
             return Err(ViewportResizeError::NoToplevel);
         }
-        // WPE 2.52 `wpe_toplevel_resize` returns FALSE for two distinct cases:
-        // "resize is not supported" and "the requested dimensions already
-        // equal the current size". Read the current size first so an initial
-        // request that happens to match WPE's default (headless: 1024x768)
-        // reports `Unchanged` rather than being falsely mapped to
-        // `Unsupported`. Only a genuine differing-size refusal is
-        // `Unsupported` after this check.
+        // WPE reports both an unchanged size and an unsupported resize as FALSE.
         let mut current_w: c_int = 0;
         let mut current_h: c_int = 0;
         // SAFETY: `toplevel` is a live borrowed WPEToplevel*; the two int
         // out-parameters are stack locals owned here.
         unsafe { ffi::wpe_toplevel_get_size(toplevel, &mut current_w, &mut current_h) };
-        // Record the attempted generation+size before returning, so a caller
-        // whose viewport already matches WPE does not re-read `get_size` on
-        // every redraw; a genuinely new size that appears later still bypasses
-        // this cache and reaches `resize`.
-        self.last_viewport_request = Some((view, size));
-        if current_w == size.width() && current_h == size.height() {
-            return Ok(ViewportResize::Unchanged);
+        let resized = current_w != size.width() || current_h != size.height();
+        if resized && let Some(presentation) = &self.gpu_presentation {
+            presentation.record_viewport(Some(size.with_device_scale(scale as f32)));
         }
         // SAFETY: `toplevel` is a live borrowed WPEToplevel; `ViewportSize`
         // guarantees positive dimensions representable by the C `gint` ABI.
-        let accepted =
-            unsafe { ffi::wpe_toplevel_resize(toplevel, size.width(), size.height()) != 0 };
-        if accepted {
+        if resized
+            && unsafe { ffi::wpe_toplevel_resize(toplevel, size.width(), size.height()) == 0 }
+        {
+            return Err(ViewportResizeError::Unsupported);
+        }
+        if scale != requested_scale && self.set_device_scale(requested_scale).is_none() {
+            return Err(ViewportResizeError::Unsupported);
+        }
+        self.last_viewport_request = Some((view, size));
+        if resized || scale != requested_scale {
             Ok(ViewportResize::Requested)
         } else {
-            Err(ViewportResizeError::Unsupported)
+            Ok(ViewportResize::Unchanged)
         }
     }
 

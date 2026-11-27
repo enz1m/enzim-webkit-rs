@@ -2457,8 +2457,8 @@ unsafe extern "C" {
     /// The entry point a platform backend calls when the output scale changes;
     /// it updates the toplevel and propagates to `WPEView:scale`. WPE's API docs
     /// restrict it to `WPEToplevel` derived classes in platform implementations.
-    /// The doc-hidden coordinate-space test lever uses it only because the
-    /// headless platform exposes no scaled screen of its own.
+    /// The headless adapter supplies the embedding window's scale because its
+    /// WPE toplevel has no screen of its own.
     ///
     /// Source: `/usr/include/wpe-webkit-2.0/wpe-platform/wpe/WPEToplevel.h:119`
     /// and installed `WPEPlatform-2.0.gir` (`Toplevel.scale_changed`).

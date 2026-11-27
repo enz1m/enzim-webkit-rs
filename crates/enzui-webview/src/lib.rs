@@ -201,6 +201,7 @@ pub struct EnzWebView<'a, Message = ()> {
     max_surface_width: f32,
     fill_viewport: bool,
     scale_factor: f32,
+    viewport_scale: Option<f32>,
     page_a11y: Option<PageA11y>,
     ime: Option<seam::PageInputState>,
     page_cursor: Option<iced::mouse::Interaction>,
@@ -217,6 +218,7 @@ pub struct EnzWebView<'a, Message = ()> {
     on_viewport_resize: Option<Box<dyn Fn(ViewId, enzui_webkit::ViewportSize) -> Message + 'a>>,
     /// A host-retained handle showing `frame`, drawn instead of a fresh one.
     presented: Option<iced_image::Handle>,
+    frame_pixel_scale: f32,
     gpu: Option<gpu::GpuFrame>,
     gpu_source: Option<gpu::GpuFrameSource>,
 }
@@ -280,6 +282,7 @@ pub fn enz_web_view<Message>(
         max_surface_width: DEFAULT_MAX_SURFACE_WIDTH,
         fill_viewport: false,
         scale_factor: 1.0,
+        viewport_scale: None,
         page_a11y: None,
         ime: None,
         page_cursor: None,
@@ -287,6 +290,7 @@ pub fn enz_web_view<Message>(
         on_input: None,
         on_viewport_resize: None,
         presented: None,
+        frame_pixel_scale: 1.0,
         gpu: None,
         gpu_source: None,
     }
@@ -311,6 +315,7 @@ pub fn enz_web_view_owned<Message>(
         max_surface_width: DEFAULT_MAX_SURFACE_WIDTH,
         fill_viewport: false,
         scale_factor: 1.0,
+        viewport_scale: None,
         page_a11y: None,
         ime: None,
         page_cursor: None,
@@ -318,6 +323,7 @@ pub fn enz_web_view_owned<Message>(
         on_input: None,
         on_viewport_resize: None,
         presented: None,
+        frame_pixel_scale: 1.0,
         gpu: None,
         gpu_source: None,
     }
@@ -521,8 +527,7 @@ impl<'a, Message> EnzWebView<'a, Message> {
         self
     }
 
-    /// Report this widget's actual laid-out viewport when its integer logical
-    /// dimensions change.
+    /// Report changes to the laid-out logical size or requested viewport scale.
     ///
     /// The callback carries the widget's [`ViewId`] so a queued resize remains
     /// generation-safe at the app/engine boundary. Fractional layout bounds
@@ -594,15 +599,22 @@ impl<'a, Message> EnzWebView<'a, Message> {
         self
     }
 
-    /// Set the view's output/device scale (e.g. 2.0 on HiDPI). It is carried on
-    /// the [`ViewportMapping`] for validation and future framebuffer sizing but
-    /// is not multiplied into pointer/caret coordinates: WPE consumes
-    /// logical view coordinates and applies the output scale itself, so doubling
-    /// it here would miss the target at scale 2. A non-finite or
-    /// non-positive value is ignored (1.0 is kept).
+    /// Set the device scale carried by the logical [`ViewportMapping`].
+    ///
+    /// Use [`Self::viewport_scale`] to include the value in resize requests.
     #[must_use]
     pub fn scale_factor(mut self, scale: f32) -> Self {
         if scale.is_finite() && scale > 0.0 {
+            self.scale_factor = scale;
+        }
+        self
+    }
+
+    /// Include the host window's device scale in viewport resize requests.
+    #[must_use]
+    pub fn viewport_scale(mut self, scale: f32) -> Self {
+        if scale.is_finite() && scale >= f32::EPSILON {
+            self.viewport_scale = Some(scale);
             self.scale_factor = scale;
         }
         self
@@ -784,6 +796,15 @@ impl<'a, Message> EnzWebView<'a, Message> {
         self
     }
 
+    /// Set the CPU frame's density in buffer pixels per logical pixel.
+    #[must_use]
+    pub fn frame_pixel_scale(mut self, scale: f32) -> Self {
+        if scale.is_finite() && scale >= f32::EPSILON {
+            self.frame_pixel_scale = scale;
+        }
+        self
+    }
+
     /// Finish the builder and hand back the [`Element`], which is step 3 of
     /// the build pattern every widget in this crate follows (`docs/widgets.md`).
     ///
@@ -828,10 +849,11 @@ impl<'a, Message: 'a> From<EnzWebView<'a, Message>> for Element<'a, Message, The
                     .width(Length::Fill)
                     .height(Length::Fill);
                 if let Some(fallback) = v.frame.as_ref() {
-                    image = image.fallback(
+                    image = image.fallback_scaled(
                         v.presented
                             .clone()
                             .unwrap_or_else(|| web_frame_handle(fallback.get())),
+                        v.frame_pixel_scale,
                     );
                 }
                 if v.fill_viewport {
@@ -850,10 +872,11 @@ impl<'a, Message: 'a> From<EnzWebView<'a, Message>> for Element<'a, Message, The
                     .width(Length::Fill)
                     .height(Length::Fill);
                 if let Some(fallback) = v.frame.as_ref() {
-                    image = image.fallback(
+                    image = image.fallback_scaled(
                         v.presented
                             .clone()
                             .unwrap_or_else(|| web_frame_handle(fallback.get())),
+                        v.frame_pixel_scale,
                     );
                 }
                 if v.fill_viewport {
@@ -875,7 +898,7 @@ impl<'a, Message: 'a> From<EnzWebView<'a, Message>> for Element<'a, Message, The
                     .clone()
                     .unwrap_or_else(|| web_frame_handle(frame));
                 if v.fill_viewport {
-                    viewport_frame::ViewportFrame::new(handle).into()
+                    viewport_frame::ViewportFrame::new(handle, v.frame_pixel_scale).into()
                 } else {
                     let element = enzui_widgets::image::enz_image_handle(handle)
                         .fit(enzui_widgets::image::EnzImageFit::Contain)
@@ -961,7 +984,9 @@ impl<'a, Message: 'a> From<EnzWebView<'a, Message>> for Element<'a, Message, The
             None => seamed,
         };
         let seamed = match v.on_viewport_resize {
-            Some(handler) => seamed.on_viewport_resize(surface != WebSurface::Hidden, handler),
+            Some(handler) => {
+                seamed.on_viewport_resize(surface != WebSurface::Hidden, v.viewport_scale, handler)
+            }
             None => seamed,
         };
         let published: Element<'a, Message, Theme> = seamed.into();
