@@ -18,13 +18,13 @@ unsafe_code = "deny"
 [workspace.dependencies]
 enzui-webkit = { path = "crates/enzui-webkit" }
 enzui-webview = { path = "crates/enzui-webview" }
-enzui-security = { git = "https://github.com/enz1m/enzui.git", rev = "c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e" }
-enzui-core = { git = "https://github.com/enz1m/enzui.git", rev = "c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e" }
-enzui-services = { git = "https://github.com/enz1m/enzui.git", rev = "c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e" }
-enzui-theme = { git = "https://github.com/enz1m/enzui.git", rev = "c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e" }
-enzui-widgets = { git = "https://github.com/enz1m/enzui.git", rev = "c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e" }
-enzui-external-image = { git = "https://github.com/enz1m/enzui.git", rev = "c9251c38bf5f5ee5bfdad5fc60cc2810108ece9e" }
-iced = { git = "https://github.com/enz1m/enzim-iced.git", rev = "1f49edd6501983d3211b9222e99159904028760d", default-features = false, features = [
+enzui-security = { git = "https://github.com/enz1m/enzui.git", rev = "46648f263fbfd31bb2a6327c4dda4845f8d5af97" }
+enzui-core = { git = "https://github.com/enz1m/enzui.git", rev = "46648f263fbfd31bb2a6327c4dda4845f8d5af97" }
+enzui-services = { git = "https://github.com/enz1m/enzui.git", rev = "46648f263fbfd31bb2a6327c4dda4845f8d5af97" }
+enzui-theme = { git = "https://github.com/enz1m/enzui.git", rev = "46648f263fbfd31bb2a6327c4dda4845f8d5af97" }
+enzui-widgets = { git = "https://github.com/enz1m/enzui.git", rev = "46648f263fbfd31bb2a6327c4dda4845f8d5af97" }
+enzui-external-image = { git = "https://github.com/enz1m/enzui.git", rev = "46648f263fbfd31bb2a6327c4dda4845f8d5af97" }
+iced = { git = "https://github.com/enz1m/enzim-iced.git", rev = "58b66f27b82d30cb0fd09db524307b6a0e099279", default-features = false, features = [
     "wgpu",
     "tiny-skia",
     "crisp",
@@ -36,9 +36,9 @@ iced = { git = "https://github.com/enz1m/enzim-iced.git", rev = "1f49edd6501983d
     "svg",
     "a11y",
 ] }
-iced_test = { git = "https://github.com/enz1m/enzim-iced.git", rev = "1f49edd6501983d3211b9222e99159904028760d" }
+iced_test = { git = "https://github.com/enz1m/enzim-iced.git", rev = "58b66f27b82d30cb0fd09db524307b6a0e099279" }
 accesskit = { git = "https://github.com/enz1m/enzim-accesskit.git", rev = "7da7ac7b800fabf0bd2ba62eef23fa9117a684f4" }
-iced_renderer = { git = "https://github.com/enz1m/enzim-iced.git", rev = "1f49edd6501983d3211b9222e99159904028760d", default-features = false, features = ["fira-sans"] }
+iced_renderer = { git = "https://github.com/enz1m/enzim-iced.git", rev = "58b66f27b82d30cb0fd09db524307b6a0e099279", default-features = false, features = ["fira-sans"] }
 
 
 [patch.crates-io]
